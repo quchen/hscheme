@@ -24,9 +24,10 @@ instance Show LispValue where
 
 -- | Prettyprints Lisp code for production
 prettyShow (Atom s)    = s
-prettyShow (Bool b)    = show b
+prettyShow (Bool b)    = if b then "#t" else "#f"
 prettyShow (Number i)  = show i
 prettyShow (String s)  = printf "\"%s\"" s
+prettyShow (List [Atom "quote", x]) = "'" ++ show x
 prettyShow (List l)    = encloseIn "(" ")" $ spacedShow prettyShow l
 prettyShow (List' l d) = encloseIn "(" ")" $
                          spacedShow prettyShow l ++ " . "++ prettyShow d

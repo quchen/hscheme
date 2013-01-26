@@ -83,6 +83,12 @@ stringP = String <$> (quote *> many nonEscQuotes <* quote)
             toSpecial 't'  = '\t'
             toSpecial x    = x
 
+-- | Parses a quoted datum, e.g. '(+ 1 2) evaluates to (+ 1 2)
+quotedP = do
+      char '\''
+      expr <- expressionP
+      return $ List [Atom "quote", expr]
+
 -- | Parses a whole expression.
 expressionP :: Parser LispValue
 expressionP =     boolP
@@ -90,6 +96,7 @@ expressionP =     boolP
               <|> numberP False
               <|> stringP
               <|> listP
+              <|> quotedP
 
 parseLisp :: String -> Either ParseError LispValue
 parseLisp = parse expressionP "Lisp code parser"

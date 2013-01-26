@@ -21,31 +21,54 @@ evaluate x@(Number _) = return x
 evaluate x@(String _) = return x
 
 -- If statement
+-- TODO: Right now, if is lazy in the t/f argument. This may be a problem later
+--       on when mutable state is introduced.
 evaluate (List [Atom "if", p, ifTrue, ifFalse]) = evaluate $
       case p of (Bool False) -> ifFalse
                 _            -> ifTrue -- Everything but #f is true
 evaluate (List (Atom "if" : xs)) = throwError $ NumArgs 3 (lengthI xs) "if"
 
--- Car
-evaluate (List (Atom "car" : (List  (x:_)  ) : [] )) = evaluate x -- Replace evaluate by return and you get some form of lazy evaluation :-)
-evaluate (List (Atom "car" : (List' (x:_) _) : [] )) = evaluate x
-evaluate (List (Atom "car" : _               : [] )) = throwError $ BadArg "Expecting list"
-evaluate (List (Atom "car"                   : xs )) = throwError $ NumArgs 1 (lengthI xs) "car"
+-- Car/Cdr
+evaluate (List (Atom f : l@(List (_:_) ) : [] ))
+      | f == "car" = case l' of Right (List (x:_))  -> return x
+                                err@(Left _)        -> err
+      | f == "cdr" = case l' of Right (List (_:xs)) -> return $ List xs
+                                err@(Left _)        -> err
+      where l' = evaluate l
+evaluate (List (Atom f : l@(List' (_:_) _) : [] ))
+      | f == "car" = case l' of Right (List' (x:_) _)  -> return x
+                                err@(Left _)           -> err
+      | f == "cdr" = case l' of Right (List' (_:xs) dot) -> return $ List' xs dot
+                                err@(Left _)             -> err
+      where l' = evaluate l
+evaluate (List (Atom f : _ : [] ))
+      | f == "car" || f == "cdr"= throwError $ BadArg "Expecting (dotted?) list"
+evaluate (List (Atom f : xs ))
+      | f == "car" || f == "cdr" = throwError $ NumArgs 1 (lengthI xs) f
 
--- Cdr CONTINUE
--- RULES:
--- (cdr '(a b c)) = (b c)
--- (cdr '(a b)) = (b)
--- (cdr '(a)) = NIL
--- (cdr '(a . b)) = b
--- (cdr '(a b . c)) = (b . c)
--- (cdr 'a) = error (not list)
--- (cdr 'a 'b) = error (too many args)
+-- Cons
+evaluate (List [Atom "cons", x, (List  xs    )]) = return $ List (x:xs)
+evaluate (List [Atom "cons", x, (List' xs dot)]) = return $ List' (x:xs) dot
+evaluate (List [Atom "cons", x, y             ]) = return $ List' [x] y
+evaluate (List (Atom "cons" : xs )) = throwError $ NumArgs 2 (lengthI xs) "cons"
 
+-- Eqv? (== eq?)
+evaluate (List [Atom f, a, b])
+      | f == "eqv?" || f == "eq?" = return . Bool $ a == b
+evaluate (List (Atom f : xs))
+      | f == "eqv?" || f == "eq?" = throwError $ NumArgs 2 (lengthI xs) f
 
+-- Quoted datums
+evaluate (List [Atom "quote", expr]) = return expr
+evaluate (List (Atom "quote" : xs )) = throwError $ NumArgs 1 (lengthI xs) "quote"
 
--- Other application
+-- Other function application
 evaluate (List (Atom f : args)) = mapM evaluate args >>= apply f
+
+-- v Use quoted datums instead!
+-- Don't do anything with lists
+-- evaluate x@(List _) = return x
+-- evaluate x@(List' _ _) = return x
 
 evaluate unknown = throwError . BadExpr $ show unknown
 

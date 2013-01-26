@@ -19,6 +19,7 @@ main = do
                         , "(- 1 2 3 4)" -- Primitive
                         , "(+ (- 4 2 1) 3 5 6)" -- Nested
                         , "(- 2 (* -4 -2))" -- Negative number
+                        , "'(+ 1 2 3 4)" -- Quoted expression
                         , "(|| #t #f)" -- Boolean binary operator
                         , "(= 1 2)" -- Boolean numeric operator
                         , "(if #t \"a\" \"b\")" -- If statement
@@ -28,6 +29,18 @@ main = do
                         , "(car (1))" -- car
                         , "(car 1)" -- car
                         , "(car 1 2)" -- car
+                        , "(cdr (1 \"hello\" #t))" -- cdr
+                        , "(cdr (1))" -- cdr
+                        , "(cdr 1)" -- cdr
+                        , "(cdr 1 2)" -- cdr
+                        , "(cons 1 2)" -- cons: two to dotted
+                        , "(cons 1 (2 3))" -- cons: one to list
+                        , "(cons 1 (2 3 . 4))" -- cons: one to dotted list
+                        , "(car (cdr (cons 2 (3 4))))" -- car+cdr+cons
+                        , "(eq? 1 2)" -- eq? for two numbers
+                        , "(eq? (1 2 3) (1 2 3))" -- eq? for two lists
+                        , "(eq? 1 (1 2 3))" -- eq? for number/list
+                        , "(eq? 1 2 3)" -- eq? with too many args
                         ]
 
 
