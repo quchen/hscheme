@@ -2,30 +2,39 @@ module Evaluate (
       evaluate
 ) where
 
-import Prelude hiding (lookup) -- FU prelude
 import LispLanguage
-import Data.List (foldl1')
+import LispError
+
+import Control.Monad
+import Control.Monad.Error
 import Data.Map hiding (map)
+import Prelude hiding (lookup) -- FU prelude
 
 -- | Evaluates a Lisp tree.
-evaluate :: LispValue -> LispValue
+evaluate :: LispValue -> Either LispError LispValue
 
 -- Primitive evaluators
-evaluate x@(Atom _) = x
-evaluate x@(Bool _) = x
-evaluate x@(Number _) = x
-evaluate x@(String _) = x
+evaluate x@(Atom _)   = return x
+evaluate x@(Bool _)   = return x
+evaluate x@(Number _) = return x
+evaluate x@(String _) = return x
 
 -- Function application
-evaluate (List (Atom f : args)) = apply f $ map evaluate args
+evaluate (List (Atom f : args)) = mapM evaluate args >>= apply f
 
-evaluate x = error $ "\"" ++ show x ++ "\" is not implemented yet"
+evaluate unknown = throwError . BadExpr $ "Bad expression: " ++ show unknown
 
 -- | Applies f to args
-apply f args = maybe (Bool False) ($ args) $ lookup f functions
+apply :: String -- ^ Name of the function
+      -> [LispValue] -- ^ Argument list
+      -> Either LispError LispValue
+apply fName args = maybe (throwError . UnknownFunc $ "Function \"" ++ fName
+                                                     ++ "\" not recognized")
+                         ($ args)
+                         (lookup fName functions)
 
 -- | Collection of allowed functions.
-functions :: Map String ([LispValue] -> LispValue)
+functions :: Map String ([LispValue] -> Either LispError LispValue)
 functions = fromList [ (        "+", numericBinOp (+) )
                      , (        "-", numericBinOp (-) )
                      , (        "*", numericBinOp (*) )
@@ -36,8 +45,11 @@ functions = fromList [ (        "+", numericBinOp (+) )
                      ]
 
 -- | Stores numerical binary operators.
-numericBinOp :: (Integer -> Integer -> Integer) -> [LispValue] -> LispValue
-numericBinOp f = foldl1' f'
-      where getNumber (Number n) = n
-            getNumber _          = 0 -- TODO: make this an error
-            f' a b = Number $ getNumber a `f` getNumber b
+numericBinOp :: (Integer -> Integer -> Integer) -- ^ Binary function
+             -> [LispValue]                     -- Argument list to fold over
+             -> Either LispError LispValue
+numericBinOp f (x:xs) = foldM f' x xs
+      where f' (Number a) (Number b) = return . Number $ a `f` b
+            f' _          (Number _) = throwError . BadArg $ "First argument must be a number"
+            f' _          _          = throwError . BadArg $ "Second argument must be a number"
+numericBinOp f _ = throwError $ NumArgs 2

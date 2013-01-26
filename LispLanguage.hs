@@ -16,6 +16,7 @@ data LispValue = Atom String
                deriving (Eq)
 -- TODO: Add Char -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-9.html#%_sec_6.3.4
 -- TODO: Add other numbers -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-9.html#%_sec_6.2.1
+-- TODO: Add vectors -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-9.html#%_sec_6.3.6
 
 
 instance Show LispValue where

@@ -1,6 +1,7 @@
 module Main where
 
 import LispLanguage
+import LispError
 import Parser
 import Evaluate
 import Data.Either
@@ -18,9 +19,17 @@ main = do
                   ]
       mapM_ (putStrLn . prettyEval . getLisp) lisps
 
+
+-- DIRTY SECTION
+
+unEither :: Either LispError LispValue -> LispValue
+unEither = either (error . show) id
+
 -- | Parses and un-eithers lisp code
+getLisp :: String -> LispValue
 getLisp = either (error . show) id . parseLisp
 
 -- | Evaluates a lisp value and formats it to a pretty string
 prettyEval :: LispValue -> String
-prettyEval lisp = prettyShow lisp ++ "\n= " ++ prettyShow (evaluate lisp)
+prettyEval lisp =    prettyShow lisp ++ "\n= "
+                  ++ prettyShow (either (error . show) id $ evaluate lisp)
