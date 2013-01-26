@@ -43,7 +43,7 @@ debugShow (List' l d) = encloseIn "(" ")" $
 
 -- | Shows the list's elements separated by spaces.
 spacedShow :: (Show a) => (a -> String) -> [a] -> String
-spacedShow showF = intercalate " " . map showF
+spacedShow showF = unwords . map showF
 
 -- | Encloses a list in two other lists.
 --   Example: encloseIn "(" ")" "hello" ==> "(hello)"

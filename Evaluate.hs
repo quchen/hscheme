@@ -24,6 +24,7 @@ evaluate x = error $ "\"" ++ show x ++ "\" is not implemented yet"
 -- | Applies f to args
 apply f args = maybe (Bool False) ($ args) $ lookup f functions
 
+-- | Collection of allowed functions.
 functions :: Map String ([LispValue] -> LispValue)
 functions = fromList [ (        "+", numericBinOp (+) )
                      , (        "-", numericBinOp (-) )
@@ -34,6 +35,7 @@ functions = fromList [ (        "+", numericBinOp (+) )
                      , ("remainder", numericBinOp rem )
                      ]
 
+-- | Stores numerical binary operators.
 numericBinOp :: (Integer -> Integer -> Integer) -> [LispValue] -> LispValue
 numericBinOp f = foldl1' f'
       where getNumber (Number n) = n
