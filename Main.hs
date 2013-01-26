@@ -9,7 +9,7 @@ import Control.Monad
 import System.Environment
 
 main :: IO ()
-main = runWithArgs
+main = testExpressions
 
 -- | Start a REPL (Read-Evaluate-Print Loop)
 repl :: IO ()
@@ -33,9 +33,11 @@ testExpressions = do
       putStrLn "==================="
 
       let expressions = [ "#t" -- Bool
-                        , "\"he\\\"l\\\\lo\"" -- Complicated string
+                        , "\"he\\\\\\\"l\\\\lo\"" -- Complicated string. Note that Haskell parses every second backslash away, then Parsec will do the same. Therefore, only 1/4 of the backslashes actually make it to Lisp :-)
                         , "(1 2 3 4)" -- List
+                        , "'(1 2 3 4)" -- List
                         , "(1 2 3 . 4)" -- Dotted list
+                        , "'(1 2 3 . 4)" -- Dotted list
                         , "(- 1 2 3 4)" -- Primitive
                         , "(+ (- 4 2 1) 3 5 6)" -- Nested
                         , "(- 2 (* -4 -2))" -- Negative number
@@ -46,18 +48,18 @@ testExpressions = do
                         , "(if #t \"a\" \"b\")" -- If statement
                         , "(if #t \"a\" \"b\" \"x\")" -- If statement with wrong parameter count
                         , "(+ #t 2)" -- If statement with wrong parameter type
-                        , "(car '(1 \"hello\" #t))" -- car
-                        , "(car '(1))" -- car
-                        , "(car 1)" -- car
-                        , "(car 1 2)" -- car
-                        , "(cdr '(1 \"hello\" #t))" -- cdr
-                        , "(cdr '(1))" -- cdr
-                        , "(cdr 1)" -- cdr
-                        , "(cdr 1 2)" -- cdr
+                        , "(car '(1 \"hello\" #t))" -- car with heterogeneous list
+                        , "(car '(1))" -- car with singleton list
+                        , "(car 1)" -- car with wrong argument
+                        , "(car 1 2)" -- car with too many arguments
+                        , "(cdr '(1 \"hello\" #t))" -- cdr with heterogeneous list
+                        , "(cdr '(1))" -- cdr with singleton argument
+                        , "(cdr 1)" -- cdr with wrong argument
+                        , "(cdr 1 2)" -- cdr with too many arguments
                         , "(cons 1 2)" -- cons: two to dotted
-                        , "(cons 1 (2 3))" -- cons: one to list
-                        , "(cons 1 (2 3 . 4))" -- cons: one to dotted list
-                        , "(car (cdr (cons 2 (3 4))))" -- car+cdr+cons
+                        , "(cons 1 '(2 3))" -- cons: one to list
+                        , "(cons 1 '(2 3 . 4))" -- cons: one to dotted list
+                        , "(car (cdr (cons 2 '(3 4))))" -- car+cdr+cons
                         , "(eq? 1 2)" -- eq? for two numbers
                         , "(eq? (1 2 3) (1 2 3))" -- eq? for two lists
                         , "(eq? 1 (1 2 3))" -- eq? for number/list

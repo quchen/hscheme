@@ -21,40 +21,17 @@ evaluate x@(Number _) = return x
 evaluate x@(String _) = return x
 
 -- If statement
--- TODO: Right now, if is lazy in the t/f argument. This may be a problem later
---       on when mutable state and IO is introduced.
+-- NOTE: if is lazy in Scheme!
+--       http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-7.html#%_sec_4.1.5
 evaluate (List [Atom "if", p, ifTrue, ifFalse]) = evaluate $
       case p of (Bool False) -> ifFalse
                 _            -> ifTrue -- Everything but #f is true
 evaluate (List (Atom "if" : xs)) = throwError $ NumArgs 3 (lengthI xs) "if"
 
--- Car/Cdr
-evaluate (List [Atom f, l@(List (_:_) )])
-      | f == "car" = case l' of Right (List (x:_))  -> return x
-                                Right r             -> evaluate (List [Atom f, r])
-                                err@(Left _)        -> err
-      | f == "cdr" = case l' of Right (List (_:xs)) -> return $ List xs
-                                Right r             -> evaluate (List [Atom f, r])
-                                err@(Left _)        -> err
-      where l' = evaluate l
-evaluate (List [Atom f, l@(List' (_:_) _)])
-      | f == "car" = case l' of Right (List' (x:_) _)  -> return x
-                                Right r                -> evaluate (List [Atom f, r])
-                                err@(Left _)           -> err
-      | f == "cdr" = case l' of Right (List' (_:xs) dot) -> return $ List' xs dot
-                                Right r                  -> evaluate (List [Atom f, r])
-                                err@(Left _)             -> err
-      where l' = evaluate l
-evaluate (List [Atom f, _])
-      | f == "car" || f == "cdr"= throwError $ BadArg "Expecting (dotted?) list"
-evaluate (List (Atom f : xs))
-      | f == "car" || f == "cdr" = throwError $ NumArgs 1 (lengthI xs) f
-
--- Cons
-evaluate (List [Atom "cons", x, List  xs    ]) = return $ List (x:xs)
-evaluate (List [Atom "cons", x, List' xs dot]) = return $ List' (x:xs) dot
-evaluate (List [Atom "cons", x, y           ]) = return $ List' [x] y
-evaluate (List (Atom "cons" : xs )) = throwError $ NumArgs 2 (lengthI xs) "cons"
+-- List functions: car, cons, cdr
+evaluate (List (Atom "car"  : xs)) = car  xs
+evaluate (List (Atom "cdr"  : xs)) = cdr  xs
+evaluate (List (Atom "cons" : xs)) = cons xs
 
 -- Eqv? (== eq?)
 evaluate (List [Atom f, a, b])
@@ -170,3 +147,49 @@ unpackString _          = throwError $ BadArg "Expecting string"
 -- | Prelude.length, but with a Num return value
 lengthI :: Num b => [a] -> b
 lengthI = fromIntegral . length
+
+
+-- | car returns the first element of a list.
+car :: [LispValue] -> Either LispError LispValue
+car [xs@(List _)    ] = case evaluate xs of
+                              Right (List (x:_)) -> return x
+                              Right (List []   ) -> throwError $ BadArg "Expected non-empty list"
+                              Right _            -> throwError $ BadArg "Expected (dotted?) list"
+                              left               -> left
+car [xs@(List' _ _) ] =  case evaluate xs of
+                               Right (List' (x:_) _) -> return x
+                               Right (List' []    _) -> throwError $ BadArg "Expected non-empty list"
+                               Right _               -> throwError $ BadArg "Expected (dotted?) list"
+                               left                  -> left
+car [_]               = throwError $ BadArg "Expected (dotted?) list"
+car xs                = throwError $ NumArgs 1 (lengthI xs) "car"
+
+-- | cdr returns all but the first element of a list.
+cdr :: [LispValue] -> Either LispError LispValue
+cdr [xs@(List _)    ] = case evaluate xs of
+                              Right (List (_:ys)) -> return $ List ys
+                              Right (List []   )  -> throwError $ BadArg "Expected non-empty list"
+                              Right _             -> throwError $ BadArg "Expected (dotted?) list"
+                              left                -> left
+cdr [xs@(List' _ _) ] =  case evaluate xs of
+                               Right (List' (_:ys) d) -> return $ List' ys d
+                               Right (List' []     d) -> throwError $ BadArg "Expected non-empty list"
+                               Right _                -> throwError $ BadArg "Expected (dotted?) list"
+                               left                   -> left
+cdr [_]               = throwError $ BadArg "Expected (dotted?) list"
+cdr xs                = throwError $ NumArgs 1 (lengthI xs) "cdr"
+
+-- | cons prepends its first argument to the list applied to the second.
+--   As a special case, if the second argument is not a list, it creates a
+--   dotted list.
+cons :: [LispValue] -> Either LispError LispValue
+cons [x, xs] = do
+      x' <- evaluate x
+      case evaluate xs of
+            Right (List xs')      -> return $ List (x':xs')
+            Right (List' xs' dot) -> do dot' <- evaluate dot
+                                        return $ List' (x':xs') dot'
+            Right y               -> do y' <- evaluate y
+                                        return $ List' [x'] y'
+            left                  -> left
+cons xs = throwError $ NumArgs 2 (lengthI xs) "cons"
