@@ -8,7 +8,20 @@ import Data.Either
 import Text.Printf
 import Control.Monad
 
-main = do
+main = testExpressions
+
+-- | Start a REPL (Read-Evaluate-Print Loop)
+repl :: IO ()
+repl = do
+      expr <- putStr "> " >> getLine
+      putStr ">>> "
+      case parseLisp expr >>= evaluate of
+            Left  err    -> print err
+            Right result -> print result
+      repl
+
+-- | Prints a couple of Lisp expressions and what they evaluate to
+testExpressions = do
       putStrLn "Basic sanity checks"
       putStrLn "==================="
 
@@ -20,17 +33,18 @@ main = do
                         , "(+ (- 4 2 1) 3 5 6)" -- Nested
                         , "(- 2 (* -4 -2))" -- Negative number
                         , "'(+ 1 2 3 4)" -- Quoted expression
+                        , "(quote 'a 'b)" -- Quoted expression
                         , "(|| #t #f)" -- Boolean binary operator
                         , "(= 1 2)" -- Boolean numeric operator
                         , "(if #t \"a\" \"b\")" -- If statement
                         , "(if #t \"a\" \"b\" \"x\")" -- If statement with wrong parameter count
                         , "(+ #t 2)" -- If statement with wrong parameter type
-                        , "(car (1 \"hello\" #t))" -- car
-                        , "(car (1))" -- car
+                        , "(car '(1 \"hello\" #t))" -- car
+                        , "(car '(1))" -- car
                         , "(car 1)" -- car
                         , "(car 1 2)" -- car
-                        , "(cdr (1 \"hello\" #t))" -- cdr
-                        , "(cdr (1))" -- cdr
+                        , "(cdr '(1 \"hello\" #t))" -- cdr
+                        , "(cdr '(1))" -- cdr
                         , "(cdr 1)" -- cdr
                         , "(cdr 1 2)" -- cdr
                         , "(cons 1 2)" -- cons: two to dotted
@@ -48,8 +62,6 @@ main = do
             -- The above parses the stuff before evaluation, but this is just
             -- a toy expression anyway
       forM_ expressions $ doEverything (maxLength expressions)
-
-
 
 
 -- DIRTY SECTION

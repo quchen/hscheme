@@ -5,6 +5,7 @@ module Parser (
 import LispLanguage
 
 import Control.Applicative
+import LispError
 import Data.Either
 import Data.Monoid
 import Text.Parsec hiding ((<|>), many)
@@ -98,7 +99,11 @@ expressionP =     boolP
               <|> listP
               <|> quotedP
 
-parseLisp :: String -> Either ParseError LispValue
-parseLisp = parse expressionP "Lisp code parser"
+parseLisp :: String -> Either LispError LispValue
+parseLisp = toLispError . parse expressionP "Lisp code parser"
+      where -- Convert Parsec error to Lisp error
+            toLispError = mapLeft BadParse
+            mapLeft f (Left  l) = Left (f l)
+            mapLeft _ (Right r) = Right r
 
 -- NOTE: Current position in Parsec can be obtained using sourceLine <$> getPosition

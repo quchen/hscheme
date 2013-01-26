@@ -5,6 +5,7 @@ module LispError (
 import LispLanguage
 import Control.Monad.Error
 import Text.Printf
+import Text.Parsec (ParseError)
 
 data LispError =
         Generic String -- ^ If you don't know better
@@ -13,6 +14,7 @@ data LispError =
       | NumArgs Integer Integer String -- ^ Wrong number of arguments.
                                        --   Format: expected, given, name
       | BadArg String -- ^ Bad argument, e.g. (- "1")
+      | BadParse ParseError -- ^ Parsec complained
 
 instance Show LispError where
       show x = printf "### Error: %s" (show' x)
@@ -23,13 +25,15 @@ show' :: LispError -> String
 show' (Generic s) = printf pattern s
       where pattern = "An error occurred: '%s'"
 show' (BadExpr e) = printf pattern e
-      where pattern = "Unrecognized expression: '%s'"
+      where pattern = "Unrecognized expression: '%s' (Did you forget a quote?)"
 show' (UnknownFunc f) = printf pattern f
       where pattern = "Unknown function: '%s'"
 show' (NumArgs e g n) = printf pattern n e (pluralS e) g
       where pattern = "'%s' expects %d argument%s, %d given"
 show' (BadArg b) = printf pattern b
       where pattern = "Bad argument: %s"
+show' (BadParse b) = printf pattern (show b)
+      where pattern = "Parse error: %s"
 
 pluralS x | x > 1     = "s"
           | otherwise = ""

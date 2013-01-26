@@ -58,17 +58,14 @@ evaluate (List [Atom f, a, b])
 evaluate (List (Atom f : xs))
       | f == "eqv?" || f == "eq?" = throwError $ NumArgs 2 (lengthI xs) f
 
--- Quoted datums
+-- TODO: evaluate equal?
+
+-- Quoted datums. Leaves its argument unevaluated.
 evaluate (List [Atom "quote", expr]) = return expr
 evaluate (List (Atom "quote" : xs )) = throwError $ NumArgs 1 (lengthI xs) "quote"
 
 -- Other function application
 evaluate (List (Atom f : args)) = mapM evaluate args >>= apply f
-
--- v Use quoted datums instead!
--- Don't do anything with lists
--- evaluate x@(List _) = return x
--- evaluate x@(List' _ _) = return x
 
 evaluate unknown = throwError . BadExpr $ show unknown
 
