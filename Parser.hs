@@ -44,26 +44,12 @@ boolP = Bool . toBool <$> (char '#' *> (oneOf "tf" <?> hint))
       where toBool b = b == 't'
             hint = "t/f after #"
 
-listContentP :: Parser LispValue
-listContentP = List <$> expressionP `sepBy` spacesP
-
-list'ContentP :: Parser LispValue
-list'ContentP = List' <$> expressionP `endBy` spacesP -- TODO: Why does using sepBy and adding a <* spacesP not work for parsing a dotted list of the form "1 2 . 3"? It says unexpected "."
-                    <*  char '.' <*  spacesP
-                    <*> expressionP
-
--- TODO: Change the list parsers so they can be used without backtracking
-listP :: Parser LispValue
-listP = between (char '(')
-                (char ')')
-                (try list'ContentP <|> listContentP)
-listP' = do
+listP = do
       char '('
       xs <- expressionP `endBy` spacesP
-      x <- optionMaybe $ char '.' *> expressionP
+      dot <- optionMaybe $ char '.' *> spacesP *> expressionP <* spacesP
       char ')'
-      return $ case x of Nothing  -> List xs
-                         Just dot -> List' xs dot
+      return $ maybe (List xs) (List' xs) dot
 
 
 -- | Parses a nonnegative Integer.
