@@ -5,19 +5,38 @@ import LispError
 import Parser
 import Evaluate
 import Data.Either
+import Text.Printf
+import Control.Monad
 
 main = do
       putStrLn "Basic sanity checks"
       putStrLn "==================="
-      let lisps = [
-                    "#t" -- Bool
-                  , "\"he\\tl\\\\lo\"" -- Complicated string
-                  , "(- 1 2 3 4)" -- Primitive
-                  , "(+ (- 4 2 1) 3 5 6)" -- Nested
-                  , "(- 2 (* -4 -2))" -- Negative number
-                  , "(1 2 3 . 4)" -- Dotted list
-                  ]
-      mapM_ (putStrLn . prettyEval . getLisp) lisps
+
+      let expressions = [ "#t" -- Bool
+                        , "\"he\\\"l\\\\lo\"" -- Complicated string
+                        , "(1 2 3 4)" -- List
+                        , "(1 2 3 . 4)" -- Dotted list
+                        , "(- 1 2 3 4)" -- Primitive
+                        , "(+ (- 4 2 1) 3 5 6)" -- Nested
+                        , "(- 2 (* -4 -2))" -- Negative number
+                        , "(|| #t #f)" -- Boolean binary operator
+                        , "(= 1 2)" -- Boolean numeric operator
+                        , "(if #t \"a\" \"b\")" -- If statement
+                        , "(if #t \"a\" \"b\" \"x\")" -- If statement with wrong parameter count
+                        , "(+ #t 2)" -- If statement with wrong parameter type
+                        , "(car (1 \"hello\" #t))" -- car
+                        , "(car (1))" -- car
+                        , "(car 1)" -- car
+                        , "(car 1 2)" -- car
+                        ]
+
+
+      let maxLength = maximum . map (length . prettyShow . getLisp)
+            -- The above parses the stuff before evaluation, but this is just
+            -- a toy expression anyway
+      forM_ expressions $ doEverything (maxLength expressions)
+
+
 
 
 -- DIRTY SECTION
@@ -30,6 +49,9 @@ getLisp :: String -> LispValue
 getLisp = either (error . show) id . parseLisp
 
 -- | Evaluates a lisp value and formats it to a pretty string
-prettyEval :: LispValue -> String
-prettyEval lisp =    prettyShow lisp ++ "\n= "
-                  ++ prettyShow (either (error . show) id $ evaluate lisp)
+prettyEval :: Int -> LispValue -> String
+prettyEval pad lisp = printf "%*s   ==>   %s" pad
+                                              (prettyShow lisp)
+                                              (either show prettyShow $ evaluate lisp)
+
+doEverything pad = putStrLn . prettyEval pad . getLisp
