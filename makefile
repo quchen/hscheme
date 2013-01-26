@@ -1,5 +1,10 @@
+EXENAME = hscheme
+
 all :
-	ghc -O2 --make Main.hs -o hscheme
+	ghc -O2 --make Main.hs -o $(EXENAME)
+
+wall :
+	ghc -O2 --make Main.hs -o $(EXENAME) -Wall
 
 clean :
 	rm -f $(EXENAME)

@@ -4,23 +4,30 @@ import LispLanguage
 import LispError
 import Parser
 import Evaluate
-import Data.Either
 import Text.Printf
 import Control.Monad
+import System.Environment
 
-main = testExpressions
+main :: IO ()
+main = runWithArgs
 
 -- | Start a REPL (Read-Evaluate-Print Loop)
 repl :: IO ()
 repl = do
       expr <- putStr "> " >> getLine
       putStr ">>> "
-      case parseLisp expr >>= evaluate of
-            Left  err    -> print err
-            Right result -> print result
+      either print print $ parseLisp expr >>= evaluate
       repl
 
+-- | Runs command line argument as Lisp if given, otherwise starts the REPL.
+runWithArgs :: IO ()
+runWithArgs = do
+      args <- getArgs
+      case args of (lisp:_) -> either print print $ parseLisp lisp >>= evaluate
+                   _        -> repl
+
 -- | Prints a couple of Lisp expressions and what they evaluate to
+testExpressions :: IO ()
 testExpressions = do
       putStrLn "Basic sanity checks"
       putStrLn "==================="
@@ -79,4 +86,7 @@ prettyEval pad lisp = printf "%*s   ==>   %s" pad
                                               (prettyShow lisp)
                                               (either show prettyShow $ evaluate lisp)
 
+-- | Read, parse, evaluate, prettyprint Lisp. First argument is padding so that
+--   multiple expressions can be printed the same way.
+doEverything :: Int -> String -> IO ()
 doEverything pad = putStrLn . prettyEval pad . getLisp

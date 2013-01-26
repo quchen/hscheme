@@ -4,7 +4,6 @@ module LispLanguage (
       debugShow
 ) where
 
-import Data.List
 import Text.Printf
 
 data LispValue = Atom String
@@ -23,17 +22,19 @@ instance Show LispValue where
       show = prettyShow
 
 -- | Prettyprints Lisp code for production
+prettyShow :: LispValue -> String
 prettyShow (Atom s)    = s
 prettyShow (Bool b)    = if b then "#t" else "#f"
 prettyShow (Number i)  = show i
 prettyShow (String s)  = printf "\"%s\"" s
-prettyShow (List [Atom "quote", x]) = "'" ++ show x
+prettyShow (List [Atom "quote", x]) = '\"' : show x
 prettyShow (List l)    = encloseIn "(" ")" $ spacedShow prettyShow l
 prettyShow (List' l d) = encloseIn "(" ")" $
                          spacedShow prettyShow l ++ " . "++ prettyShow d
 
 -- | Adds types to printouts for debugging.
 --   This is similar to the auto-derived instance.
+debugShow :: LispValue -> String
 debugShow (Atom s)    = printf "Atom:%s" s
 debugShow (Bool b)    = printf "Bool:%s" (show b)
 debugShow (Number i)  = printf "Number:%s" (show i)

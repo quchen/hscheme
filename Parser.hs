@@ -6,8 +6,6 @@ import LispLanguage
 
 import Control.Applicative
 import LispError
-import Data.Either
-import Data.Monoid
 import Text.Parsec hiding ((<|>), many)
 import Text.Parsec.String
 
@@ -47,11 +45,12 @@ boolP = Bool . toBool <$> (char '#' *> (oneOf "tf" <?> hint))
             hint = "t/f after #"
 
 -- | Parses lists and dotted lists.
+listP :: Parser LispValue
 listP = do
-      char '('
+      _ <- char '('
       xs <- expressionP `endBy` spacesP
       dot <- optionMaybe $ char '.' *> spacesP *> expressionP <* spacesP
-      char ')'
+      _ <- char ')'
       return $ maybe (List xs) (List' xs) dot
 
 
@@ -85,8 +84,9 @@ stringP = String <$> (quote *> many nonEscQuotes <* quote)
             toSpecial x    = x
 
 -- | Parses a quoted datum, e.g. '(+ 1 2) evaluates to (+ 1 2)
+quotedP :: Parser LispValue
 quotedP = do
-      char '\''
+      _ <- char '\''
       expr <- expressionP
       return $ List [Atom "quote", expr]
 

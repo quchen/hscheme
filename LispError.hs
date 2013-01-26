@@ -2,7 +2,7 @@ module LispError (
       LispError(..)
 ) where
 
-import LispLanguage
+import LispLanguage () -- Import only instances
 import Control.Monad.Error
 import Text.Printf
 import Text.Parsec (ParseError)
@@ -35,6 +35,8 @@ show' (BadArg b) = printf pattern b
 show' (BadParse b) = printf pattern (show b)
       where pattern = "Parse error: %s"
 
+-- | Generates a plural "s" for numbers greater than 1.
+pluralS :: (Num a, Ord a) => a -> String
 pluralS x | x > 1     = "s"
           | otherwise = ""
 

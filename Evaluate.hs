@@ -22,34 +22,38 @@ evaluate x@(String _) = return x
 
 -- If statement
 -- TODO: Right now, if is lazy in the t/f argument. This may be a problem later
---       on when mutable state is introduced.
+--       on when mutable state and IO is introduced.
 evaluate (List [Atom "if", p, ifTrue, ifFalse]) = evaluate $
       case p of (Bool False) -> ifFalse
                 _            -> ifTrue -- Everything but #f is true
 evaluate (List (Atom "if" : xs)) = throwError $ NumArgs 3 (lengthI xs) "if"
 
 -- Car/Cdr
-evaluate (List (Atom f : l@(List (_:_) ) : [] ))
+evaluate (List [Atom f, l@(List (_:_) )])
       | f == "car" = case l' of Right (List (x:_))  -> return x
+                                Right r             -> evaluate (List [Atom f, r])
                                 err@(Left _)        -> err
       | f == "cdr" = case l' of Right (List (_:xs)) -> return $ List xs
+                                Right r             -> evaluate (List [Atom f, r])
                                 err@(Left _)        -> err
       where l' = evaluate l
-evaluate (List (Atom f : l@(List' (_:_) _) : [] ))
+evaluate (List [Atom f, l@(List' (_:_) _)])
       | f == "car" = case l' of Right (List' (x:_) _)  -> return x
+                                Right r                -> evaluate (List [Atom f, r])
                                 err@(Left _)           -> err
       | f == "cdr" = case l' of Right (List' (_:xs) dot) -> return $ List' xs dot
+                                Right r                  -> evaluate (List [Atom f, r])
                                 err@(Left _)             -> err
       where l' = evaluate l
-evaluate (List (Atom f : _ : [] ))
+evaluate (List [Atom f, _])
       | f == "car" || f == "cdr"= throwError $ BadArg "Expecting (dotted?) list"
-evaluate (List (Atom f : xs ))
+evaluate (List (Atom f : xs))
       | f == "car" || f == "cdr" = throwError $ NumArgs 1 (lengthI xs) f
 
 -- Cons
-evaluate (List [Atom "cons", x, (List  xs    )]) = return $ List (x:xs)
-evaluate (List [Atom "cons", x, (List' xs dot)]) = return $ List' (x:xs) dot
-evaluate (List [Atom "cons", x, y             ]) = return $ List' [x] y
+evaluate (List [Atom "cons", x, List  xs    ]) = return $ List (x:xs)
+evaluate (List [Atom "cons", x, List' xs dot]) = return $ List' (x:xs) dot
+evaluate (List [Atom "cons", x, y           ]) = return $ List' [x] y
 evaluate (List (Atom "cons" : xs )) = throwError $ NumArgs 2 (lengthI xs) "cons"
 
 -- Eqv? (== eq?)
@@ -59,6 +63,7 @@ evaluate (List (Atom f : xs))
       | f == "eqv?" || f == "eq?" = throwError $ NumArgs 2 (lengthI xs) f
 
 -- TODO: evaluate equal?
+-- TODO: evaluate cond, case -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-7.html#%_sec_4.2.1
 
 -- Quoted datums. Leaves its argument unevaluated.
 evaluate (List [Atom "quote", expr]) = return expr
@@ -118,7 +123,7 @@ numBinOp f (x:xs) = foldM f' x xs
       where f' (Number a) (Number b) = return . Number $ a `f` b
             f' _          (Number _) = throwError $ BadArg "Not a number"
             f' _          _          = throwError $ BadArg "Not a number"
-numBinOp f xs = throwError $ NumArgs 2 (lengthI xs) "Numerical binary function"
+numBinOp _ xs = throwError $ NumArgs 2 (lengthI xs) "Numerical binary function"
 
 -- | Applies binary operators that map to Bool.
 boolBinOp :: (LispValue -> Either LispError a) -- ^ Unpacking function

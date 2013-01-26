@@ -1,4 +1,4 @@
 Changelog
 
-- Added support for quoted datums
-- Added car, cdr, cons, eq?
+- Added command line parameter parsing
+- cleaned HLint, Wall
