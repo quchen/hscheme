@@ -100,24 +100,3 @@ testExpressions = do
                                                (showUnEither result)
 
       mapM_ prettyPrintf codeResultPairs
-
-
--- DIRTY SECTION
-
--- unEither :: Either LispError LispValue -> LispValue
--- unEither = either (error . show) id
-
--- -- | Parses and un-eithers lisp code
--- getLisp :: String -> LispValue
--- getLisp = either (error . show) id . parseLisp
-
--- -- | Evaluates a lisp value and formats it to a pretty string
--- prettyEval :: Int -> LispValue -> String
--- prettyEval pad lisp = printf "%*s   ==>   %s" pad
---                                               (prettyShow lisp)
---                                               (either show prettyShow $ evaluate lisp)
-
--- -- | Read, parse, evaluate, prettyprint Lisp. First argument is padding so that
--- --   multiple expressions can be printed the same way.
--- doEverything :: Int -> String -> IO ()
--- doEverything pad = putStrLn . prettyEval pad . getLisp
