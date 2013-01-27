@@ -63,10 +63,10 @@ boolP = Bool . toBool <$> (char '#' *> (oneOf "tf" <?> hint))
 -- | Parses lists and dotted lists.
 listP :: Parser LispValue
 listP = do
-      _ <- char '('
-      xs <- expressionP `endBy` ignoreP
-      dot <- optionMaybe $ char '.' *> ignoreP *> expressionP <* ignoreP
-      _ <- char ')'
+      void $ char '('
+      xs <- many expressionP
+      dot <- optionMaybe $ char '.' *> expressionP
+      void $char ')'
       return $ maybe (List xs) (List' xs) dot
 
 
@@ -102,20 +102,20 @@ stringP = String <$> (quote *> many nonEscQuotes <* quote)
 -- | Parses a quoted datum, e.g. '(+ 1 2) evaluates to (+ 1 2)
 quotedP :: Parser LispValue
 quotedP = do
-      _ <- char '\''
+      void $ char '\''
       expr <- expressionP
       return $ List [Atom "quote", expr]
 
 -- | Parses a whole expression.
 expressionP :: Parser LispValue
-expressionP = ignoreP *> (
+expressionP = between ignoreP ignoreP $
                   boolP
               <|> miscP
               <|> numberP False
               <|> stringP
               <|> listP
               <|> quotedP
-              )
+
 
 lispP :: Parser LispValue
 lispP = ignoreP *> expressionP <* ignoreP <* eof

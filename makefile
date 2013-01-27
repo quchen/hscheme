@@ -6,7 +6,10 @@ all :
 	$(HS) -O2 ./src/Main.hs -o $(EXENAME)
 
 debug :
+	@echo -n "GHC: "
 	$(HS) ./src/Main.hs -o $(EXENAME) -Wall
+	@echo "Hlint:"
+	@hlint ./src
 
 clean :
 	rm -f $(EXENAME)
