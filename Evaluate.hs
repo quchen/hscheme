@@ -107,6 +107,8 @@ setScopeVars envR assocs = readIORef envR >>= addVars >>= newIORef
 -- #############################################################################
 
 -- | Evaluates a Lisp tree.
+-- TODO: evaluate equal?
+-- TODO: evaluate cond, case -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-7.html#%_sec_4.2.1
 evaluate :: LispValue -> ThrowsError LispValue
 
 -- Primitive evaluators
@@ -116,21 +118,12 @@ evaluate x@(Number _) = return x
 evaluate x@(String _) = return x
 
 -- If statement
--- NOTE: if is lazy in Scheme!
---       http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-7.html#%_sec_4.1.5
-evaluate (List [Atom "if", p, ifTrue, ifFalse]) = evaluate $
-      case p of (Bool False) -> ifFalse
-                _            -> ifTrue -- Everything but #f is true
-evaluate (List (Atom "if" : xs)) = throwError $ NumArgs 3 (length xs) "if"
-
--- TODO: evaluate equal?
--- TODO: evaluate cond, case -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-7.html#%_sec_4.2.1
+evaluate (List (Atom "if" : xs)) = ifLisp xs
 
 -- Quoted datums. Leaves its argument unevaluated.
-evaluate (List [Atom "quote", expr]) = return expr
-evaluate (List (Atom "quote" : xs )) = throwError $ NumArgs 1 (length xs) "quote"
+evaluate (List (Atom "quote" : xs )) = quote xs
 
--- Other function application
+-- Other function application.
 evaluate (List (Atom f : args)) = mapM evaluate args >>= apply f
 
 evaluate unknown = throwError . BadExpr $ show unknown
@@ -251,6 +244,30 @@ unpackBool _        = throwError $ BadArg "Expecting boolean"
 unpackString :: LispValue -> ThrowsError String
 unpackString (String s) = return s
 unpackString _          = throwError $ BadArg "Expecting string"
+
+
+
+
+
+-- #############################################################################
+-- ## If statement #############################################################
+-- #############################################################################
+
+ifLisp [p, ifTrue, ifFalse] = evaluate $ case p of (Bool False) -> ifFalse
+                                                   _anything    -> ifTrue
+ifLisp xs = throwError $ NumArgs 3 (length xs) "if"
+
+
+
+
+
+-- #############################################################################
+-- ## Quotation ################################################################
+-- #############################################################################
+
+quote [expr] = return expr
+quote xs     = throwError $ NumArgs 1 (length xs) "quote"
+
 
 
 
