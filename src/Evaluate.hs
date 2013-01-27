@@ -125,8 +125,7 @@ evaluate _ unknown                     = throwError . BadExpr $ show unknown
 apply :: String -- ^ Name of the function
       -> [LispValue] -- ^ Argument list
       -> ThrowsError LispValue
-apply fName args = maybe (throwError . UnknownFunc $ "Function \"" ++ fName
-                                                     ++ "\" not recognized")
+apply fName args = maybe (throwError $ UnknownFunc fName)
                          ($ args)
                          (lookup fName functions)
 
