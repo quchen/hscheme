@@ -61,8 +61,8 @@ testExpressions = do
                         , "(cons 1 '(2 3 . 4))" -- cons: one to dotted list
                         , "(car (cdr (cons 2 '(3 4))))" -- car+cdr+cons
                         , "(eq? 1 2)" -- eq? for two numbers
-                        , "(eq? (1 2 3) (1 2 3))" -- eq? for two lists
-                        , "(eq? 1 (1 2 3))" -- eq? for number/list
+                        , "(eq? '(1 2 3) '(1 2 3))" -- eq? for two lists
+                        , "(eq? 1 '(1 2 3))" -- eq? for number/list
                         , "(eq? 1 2 3)" -- eq? with too many args
                         ]
 

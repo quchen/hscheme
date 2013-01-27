@@ -10,7 +10,7 @@ import Text.Parsec hiding ((<|>), many)
 import Text.Parsec.String
 
 -- TODO: Add quasiquotation support -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-7.html#%_sec_4.2.6
-
+-- TODO: Add comment support
 
 -- TODO write Read instance for LispVal
 -- see http://stackoverflow.com/q/14523728/1106679

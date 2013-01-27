@@ -11,8 +11,10 @@ import Control.Monad.Error
 import Data.Map hiding (map)
 import Prelude hiding (lookup) -- FU prelude
 
+type ThrowsError = Either LispError
+
 -- | Evaluates a Lisp tree.
-evaluate :: LispValue -> Either LispError LispValue
+evaluate :: LispValue -> ThrowsError LispValue
 
 -- Primitive evaluators
 evaluate x@(Atom _)   = return x
@@ -27,17 +29,6 @@ evaluate (List [Atom "if", p, ifTrue, ifFalse]) = evaluate $
       case p of (Bool False) -> ifFalse
                 _            -> ifTrue -- Everything but #f is true
 evaluate (List (Atom "if" : xs)) = throwError $ NumArgs 3 (lengthI xs) "if"
-
--- List functions: car, cons, cdr
-evaluate (List (Atom "car"  : xs)) = car  xs
-evaluate (List (Atom "cdr"  : xs)) = cdr  xs
-evaluate (List (Atom "cons" : xs)) = cons xs
-
--- Eqv? (== eq?)
-evaluate (List [Atom f, a, b])
-      | f == "eqv?" || f == "eq?" = return . Bool $ a == b
-evaluate (List (Atom f : xs))
-      | f == "eqv?" || f == "eq?" = throwError $ NumArgs 2 (lengthI xs) f
 
 -- TODO: evaluate equal?
 -- TODO: evaluate cond, case -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-7.html#%_sec_4.2.1
@@ -54,23 +45,23 @@ evaluate unknown = throwError . BadExpr $ show unknown
 -- | Applies f to args
 apply :: String -- ^ Name of the function
       -> [LispValue] -- ^ Argument list
-      -> Either LispError LispValue
+      -> ThrowsError LispValue
 apply fName args = maybe (throwError . UnknownFunc $ "Function \"" ++ fName
                                                      ++ "\" not recognized")
                          ($ args)
                          (lookup fName functions)
 
 -- | Collection of allowed functions.
-functions :: Map String ([LispValue] -> Either LispError LispValue)
+functions :: Map String ([LispValue] -> ThrowsError LispValue)
 functions = fromList [
                        -- Numerical binary operators
-                       (        "+", numBinOp (+) )
-                     , (        "-", numBinOp (-) )
-                     , (        "*", numBinOp (*) )
-                     , (        "/", numBinOp div )
-                     , (      "mod", numBinOp mod )
-                     , ( "quotient", numBinOp quot)
-                     , ("remainder", numBinOp rem )
+                       (        "+", numFoldOp (+) )
+                     , (        "-", numFoldOp (-) )
+                     , (        "*", numFoldOp (*) )
+                     , (        "/", numFoldOp div )
+                     , (      "mod", numFoldOp mod )
+                     , ( "quotient", numFoldOp quot)
+                     , ("remainder", numFoldOp rem )
 
                        -- Numerical boolean binary operators
                      , (  "=", numBoolBinOp (==) )
@@ -84,63 +75,72 @@ functions = fromList [
                      , ( "&&", boolBoolBinOp (&&) )
                      , ( "||", boolBoolBinOp (||) )
 
+                        -- General boolean operators
+                     , ( "eq?", eq )
+                     , ( "eqv?", eq )
+
                        -- String boolean operators
                      , ( "string=?", strBoolBinOp (==) )
                      , ( "string<?", strBoolBinOp (<) )
                      , ( "string>?", strBoolBinOp (>) )
                      , ( "string<=?", strBoolBinOp (<=) )
                      , ( "string>=?", strBoolBinOp (>=) )
+
+                       -- List functions
+                     , ( "cons", cons )
+                     , ( "car", car )
+                     , ( "cdr", cdr )
                      ]
 
 -- | Applies numerical binary operators.
-numBinOp :: (Integer -> Integer -> Integer) -- ^ Binary function
+numFoldOp :: (Integer -> Integer -> Integer) -- ^ Binary function
          -> [LispValue]                     -- Argument list to fold over
-         -> Either LispError LispValue
-numBinOp f (x:xs) = foldM f' x xs
+         -> ThrowsError LispValue
+numFoldOp f (x:xs) = foldM f' x xs
       where f' (Number a) (Number b) = return . Number $ a `f` b
-            f' _          (Number _) = throwError $ BadArg "Not a number"
-            f' _          _          = throwError $ BadArg "Not a number"
-numBinOp _ xs = throwError $ NumArgs 2 (lengthI xs) "Numerical binary function"
+            f' _          (Number _) = throwError $ BadArg "Expected number"
+            f' _          _          = throwError $ BadArg "Expected number"
+numFoldOp _ xs = throwError $ NumArgs 2 (lengthI xs) "Numerical binary function"
 
 -- | Applies binary operators that map to Bool.
-boolBinOp :: (LispValue -> Either LispError a) -- ^ Unpacking function
+boolBinOp :: (LispValue -> ThrowsError a) -- ^ Unpacking function
           -> (a -> a -> Bool)                  -- ^ Binary operator
           -> [LispValue]                       -- ^ Arguments
-          -> Either LispError LispValue
+          -> ThrowsError LispValue
 boolBinOp unpack f [x,y] = Bool <$> liftM2 f (unpack x) (unpack y)
 boolBinOp _      _ xs     = throwError $ NumArgs 2 (lengthI xs) "Boolean binary function"
 
 -- | Boolean-valued binary integer operator application
 numBoolBinOp :: (Integer -> Integer -> Bool)
              -> [LispValue]
-             -> Either LispError LispValue
+             -> ThrowsError LispValue
 numBoolBinOp  = boolBinOp unpackNum
 
 -- | Boolean-valued binary integer operator application
 boolBoolBinOp :: (Bool -> Bool -> Bool)
               -> [LispValue]
-              -> Either LispError LispValue
+              -> ThrowsError LispValue
 boolBoolBinOp = boolBinOp unpackBool
 
 -- | Boolean-valued binary integer operator application
 strBoolBinOp :: (String -> String -> Bool)
              -> [LispValue]
-             -> Either LispError LispValue
+             -> ThrowsError LispValue
 strBoolBinOp  = boolBinOp unpackString
 
 
 -- | Returns the contained number of an error.
-unpackNum :: LispValue -> Either LispError Integer
+unpackNum :: LispValue -> ThrowsError Integer
 unpackNum (Number n) = return n
 unpackNum _          = throwError $ BadArg "Expecting boolean"
 
 -- | Returns the contained bool of an error.
-unpackBool :: LispValue -> Either LispError Bool
+unpackBool :: LispValue -> ThrowsError Bool
 unpackBool (Bool b) = return b
 unpackBool _        = throwError $ BadArg "Expecting boolean"
 
 -- | Returns the contained string of an error.
-unpackString :: LispValue -> Either LispError String
+unpackString :: LispValue -> ThrowsError String
 unpackString (String s) = return s
 unpackString _          = throwError $ BadArg "Expecting string"
 
@@ -150,46 +150,35 @@ lengthI = fromIntegral . length
 
 
 -- | car returns the first element of a list.
-car :: [LispValue] -> Either LispError LispValue
-car [xs@(List _)    ] = case evaluate xs of
-                              Right (List (x:_)) -> return x
-                              Right (List []   ) -> throwError $ BadArg "Expected non-empty list"
-                              Right _            -> throwError $ BadArg "Expected (dotted?) list"
-                              left               -> left
-car [xs@(List' _ _) ] =  case evaluate xs of
-                               Right (List' (x:_) _) -> return x
-                               Right (List' []    _) -> throwError $ BadArg "Expected non-empty list"
-                               Right _               -> throwError $ BadArg "Expected (dotted?) list"
-                               left                  -> left
-car [_]               = throwError $ BadArg "Expected (dotted?) list"
-car xs                = throwError $ NumArgs 1 (lengthI xs) "car"
+car :: [LispValue] -> ThrowsError LispValue
+car [List  (x:xs)    ] = return x
+car [List' (x:xs) dot] = return x
+car [_               ] = throwError $ BadArg "Expected (dotted?) list"
+car xs                 = throwError $ NumArgs 1 (lengthI xs) "car"
 
 -- | cdr returns all but the first element of a list.
-cdr :: [LispValue] -> Either LispError LispValue
-cdr [xs@(List _)    ] = case evaluate xs of
-                              Right (List (_:ys)) -> return $ List ys
-                              Right (List []   )  -> throwError $ BadArg "Expected non-empty list"
-                              Right _             -> throwError $ BadArg "Expected (dotted?) list"
-                              left                -> left
-cdr [xs@(List' _ _) ] =  case evaluate xs of
-                               Right (List' (_:ys) d) -> return $ List' ys d
-                               Right (List' []     d) -> throwError $ BadArg "Expected non-empty list"
-                               Right _                -> throwError $ BadArg "Expected (dotted?) list"
-                               left                   -> left
-cdr [_]               = throwError $ BadArg "Expected (dotted?) list"
-cdr xs                = throwError $ NumArgs 1 (lengthI xs) "cdr"
+cdr :: [LispValue] -> ThrowsError LispValue
+cdr [List  (x:xs)    ] = return $ List xs
+cdr [List' (x:xs) dot] = return $ List' xs dot
+cdr [_               ] = throwError $ BadArg "Expected (dotted?) list"
+cdr xs                 = throwError $ NumArgs 1 (lengthI xs) "cdr"
 
 -- | cons prepends its first argument to the list applied to the second.
 --   As a special case, if the second argument is not a list, it creates a
 --   dotted list.
-cons :: [LispValue] -> Either LispError LispValue
-cons [x, xs] = do
-      x' <- evaluate x
-      case evaluate xs of
-            Right (List xs')      -> return $ List (x':xs')
-            Right (List' xs' dot) -> do dot' <- evaluate dot
-                                        return $ List' (x':xs') dot'
-            Right y               -> do y' <- evaluate y
-                                        return $ List' [x'] y'
-            left                  -> left
-cons xs = throwError $ NumArgs 2 (lengthI xs) "cons"
+cons :: [LispValue] -> ThrowsError LispValue
+cons [x, List xs     ] = return $ List (x:xs)
+cons [x, List' xs dot] = return $ List' (x:xs) dot
+cons [x, y           ] = return $ List' [x] y
+cons xs                = throwError $ NumArgs 2 (lengthI xs) "cons"
+
+-- | Equality check
+eq :: [LispValue] -> ThrowsError LispValue
+eq [x, y] = return . Bool $ x == y
+eq xs     = throwError $ NumArgs 2 (lengthI xs) "eq"
+
+-- | Equality check again. Identical to 'eq'.
+-- TODO: Implement some differences? Behavior is correct but redundant right now
+eqv :: [LispValue] -> ThrowsError LispValue
+eqv [x,y] = eq [x,y]
+eqv xs    = throwError $ NumArgs 2 (lengthI xs) "eqv"
