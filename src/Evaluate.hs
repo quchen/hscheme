@@ -76,15 +76,15 @@ defineVar envR var value = do
 
 -- | Creates an environment with certain new variables
 setScopeVars :: EnvR -> [(String, LispValue)] -> IO EnvR
-setScopeVars envR assocs = readIORef envR >>= addVars >>= newIORef
+setScopeVars envR newVars = readIORef envR >>= addVars >>= newIORef
       where
-            -- | Adds the assocs provided by the parent scope to the
+            -- | Adds the new variables provided by the parent scope to the
             --   environment.
             addVars :: Env -> IO Env
             addVars env = do
-                  newEnv <- fmap fromList $ mapM makeRef assocs
-                  return $ newEnv <> env -- Note that (<>) is left-biased for
-                                         -- Data.Map, therefore newEnv variables
+                  env' <- fmap fromList $ mapM makeRef newVars
+                  return $ env' <> env -- Note that (<>) is left-biased for
+                                         -- Data.Map, therefore env' variables
                                          -- are inserted with higher priority.
 
             -- | Takes (var, value) and packs the value into an IORef, resulting
@@ -155,20 +155,20 @@ functions = fromList [
                      , ( "||", boolBoolBinOp (||) )
 
                         -- General boolean operators
-                     , ( "eq?", eq )
-                     , ( "eqv?", eq )
+                     , (  "eq?", eq  )
+                     , ( "eqv?", eqv )
 
                        -- String boolean operators
-                     , ( "string=?", strBoolBinOp (==) )
-                     , ( "string<?", strBoolBinOp (<) )
-                     , ( "string>?", strBoolBinOp (>) )
+                     , (  "string=?", strBoolBinOp (==) )
+                     , (  "string<?", strBoolBinOp (<) )
+                     , (  "string>?", strBoolBinOp (>)  )
                      , ( "string<=?", strBoolBinOp (<=) )
                      , ( "string>=?", strBoolBinOp (>=) )
 
                        -- List functions
                      , ( "cons", cons )
-                     , ( "car", car )
-                     , ( "cdr", cdr )
+                     , (  "car", car  )
+                     , (  "cdr", cdr  )
                      ]
 
 -- | Applies numerical binary operators.
@@ -281,16 +281,16 @@ quote xs     = throwError $ NumArgs 1 (length xs) "quote"
 
 -- | car returns the first element of a list.
 car :: [LispValue] -> ThrowsError LispValue
-car [List  (x:xs)    ] = return x
-car [List' (x:xs) dot] = return x
-car [_               ] = throwError $ BadArg "Expected (dotted?) list"
-car xs                 = throwError $ NumArgs 1 (length xs) "car"
+car [List  (x:_)  ] = return x
+car [List' (x:_) _] = return x
+car [_            ] = throwError $ BadArg "Expected (dotted?) list"
+car xs              = throwError $ NumArgs 1 (length xs) "car"
 
 -- | cdr returns all but the first element of a list.
 cdr :: [LispValue] -> ThrowsError LispValue
-cdr [List  (x:xs)    ] = return $ List xs
-cdr [List' [x]    dot] = return dot
-cdr [List' (x:xs) dot] = return $ List' xs dot
+cdr [List  (_:xs)    ] = return $ List xs
+cdr [List' [_]    dot] = return dot
+cdr [List' (_:xs) dot] = return $ List' xs dot
 cdr [_               ] = throwError $ BadArg "Expected (dotted?) list"
 cdr xs                 = throwError $ NumArgs 1 (length xs) "cdr"
 

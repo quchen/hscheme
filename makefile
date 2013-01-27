@@ -1,10 +1,12 @@
 EXENAME = hscheme
+INCLUDE = src
+HS = ghc --make -i$(INCLUDE)
 
 all :
-	ghc -O2 --make Main.hs -o $(EXENAME)
+	$(HS) -O2 ./src/Main.hs -o $(EXENAME)
 
 wall :
-	ghc -O2 --make Main.hs -o $(EXENAME) -Wall
+	$(HS) ./src/Main.hs -o $(EXENAME) -Wall
 
 clean :
 	rm -f $(EXENAME)

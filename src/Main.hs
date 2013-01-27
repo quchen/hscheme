@@ -8,8 +8,6 @@ import Text.Printf
 import Control.Monad
 import System.Environment
 import Control.Monad.Error
-import Data.List (maximumBy)
-import Data.Ord (comparing)
 import System.IO
 
 main :: IO ()
