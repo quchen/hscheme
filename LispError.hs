@@ -15,6 +15,7 @@ data LispError =
                                --   Format: expected, given, name
       | BadArg String -- ^ Bad argument, e.g. (- "1")
       | BadParse ParseError -- ^ Parsec complained
+      | UnknownVar String -- ^ Variable not set
 
 instance Show LispError where
       show x = printf "### Error: %s" (show' x)

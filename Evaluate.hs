@@ -5,17 +5,101 @@ module Evaluate (
 import LispLanguage
 import LispError
 
+import Data.Maybe
+import Data.Monoid
 import Data.Functor
 import Control.Monad
 import Control.Monad.Error
 import Data.Map hiding (map)
+import Data.IORef
 import Prelude hiding (lookup) -- FU prelude
 
 type ThrowsError = Either LispError
 
+type ThrowsErrorIO = ErrorT LispError IO
+
+-- | Lifts a non-IO error into the error transformer
+liftThrows :: ThrowsError a -> ThrowsErrorIO a
+liftThrows (Right r) = return r
+liftThrows (Left  l) = throwError l
 
 
 
+
+-- #############################################################################
+-- ## Variable handling ########################################################
+-- #############################################################################
+
+type Env = Map String (IORef LispValue)
+
+-- | Pointer to the variable database (R = Reference)
+type EnvR = IORef Env
+
+emptyEnv :: IO EnvR
+emptyEnv = newIORef empty
+
+-- | Checks whether a variable is set in the current environment.
+isSet :: EnvR
+      -> String -- ^ Variable name
+      -> IO Bool
+isSet envR var = readIORef envR >>= return . isJust . lookup var
+
+-- | Reads the value of a variable
+readVar :: EnvR
+        -> String -- ^ Variable name
+        -> ThrowsErrorIO LispValue
+readVar envR var = do
+      env <- liftIO $ readIORef envR
+      maybe (throwError $ UnknownVar var)
+            (liftIO . readIORef)
+            (lookup var env)
+
+-- | Sets the value of an existing variable.
+setVar :: EnvR
+       -> String -- ^ Variable name
+       -> LispValue -- ^ New value
+       -> ThrowsErrorIO LispValue
+setVar envR var value = do
+      env <- liftIO $ readIORef envR
+      maybe (throwError $ UnknownVar var)
+            (liftIO . flip writeIORef value)
+            (lookup var env)
+      return value
+
+-- | Creates or overwrites a variable.
+-- TODO: Probably doesn't matter, but maybe checking whether the variable is
+--       already defined instead of just overwriting without looking may be
+--       more efficient.
+defineVar :: EnvR
+          -> String
+          -> LispValue
+          -> ThrowsErrorIO LispValue
+defineVar envR var value = do
+      env <- liftIO $ readIORef envR
+      valueR <- liftIO $ newIORef value
+      liftIO $ writeIORef envR $ insert var valueR env
+      return value
+
+      -- bindVars :: Env -> [(String, LispVal)] -> IO Env
+
+-- | Creates an environment with certain new variables
+setScopeVars :: EnvR -> [(String, LispValue)] -> IO EnvR
+setScopeVars envR assocs = readIORef envR >>= addVars >>= newIORef
+      where
+            -- | Adds the assocs provided by the parent scope to the
+            --   environment.
+            addVars :: Env -> IO Env
+            addVars env = do
+                  newEnv <- fmap fromList $ mapM makeRef assocs
+                  return $ newEnv <> env -- Note that (<>) is left-biased for
+                                         -- Data.Map, therefore newEnv variables
+                                         -- are inserted with higher priority.
+
+            -- | Takes (var, value) and packs the value into an IORef, resulting
+            --   in (var, IORef value).
+            makeRef :: (a, b) -> IO (a, IORef b)
+            makeRef (var, value) = do valueR <- newIORef value
+                                      return (var, valueR)
 
 
 -- #############################################################################
