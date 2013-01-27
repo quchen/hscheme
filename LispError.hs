@@ -11,8 +11,8 @@ data LispError =
         Generic String -- ^ If you don't know better
       | BadExpr String -- ^ Evaluating stuff 'evaluate' doesn't support
       | UnknownFunc String -- ^ Function unknown
-      | NumArgs Integer Integer String -- ^ Wrong number of arguments.
-                                       --   Format: expected, given, name
+      | NumArgs Int Int String -- ^ Wrong number of arguments.
+                               --   Format: expected, given, name
       | BadArg String -- ^ Bad argument, e.g. (- "1")
       | BadParse ParseError -- ^ Parsec complained
 
