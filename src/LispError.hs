@@ -50,7 +50,6 @@ instance Error LispError where
       noMsg  = Generic "An error occurred"
       strMsg = Generic
 
-
 type ThrowsError = Either LispError
 
 type ThrowsErrorIO = ErrorT LispError IO

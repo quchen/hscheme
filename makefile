@@ -5,7 +5,7 @@ HS = ghc --make -i$(INCLUDE)
 all :
 	$(HS) -O2 ./src/Main.hs -o $(EXENAME)
 
-wall :
+debug :
 	$(HS) ./src/Main.hs -o $(EXENAME) -Wall
 
 clean :
