@@ -1,7 +1,6 @@
--- | Primitive built-in functions, in the sense that they're hardcoded in the
---   interpreter. Most (if not all) of these functions could have been
---   implemented as a Lisp library as well.
-module Evaluate.Primitive (
+-- | Standard built-in functions, in the sense that they're hardcoded in the
+--   interpreter. (R6RS standard, chapter 6)
+module Evaluate.Standard (
       apply
 ) where
 
@@ -26,11 +25,11 @@ apply :: String -- ^ Name of the function
       -> ThrowsError LispValue
 apply fName args = maybe (throwError $ UnknownFunc fName)
                          ($ args)
-                         (lookup fName primitiveFunctions)
+                         (lookup fName standardFunctions)
 
--- | Collection of primitive functions.
-primitiveFunctions :: Map String ([LispValue] -> ThrowsError LispValue)
-primitiveFunctions = fromList [
+-- | Collection of standard functions.
+standardFunctions :: Map String ([LispValue] -> ThrowsError LispValue)
+standardFunctions = fromList [
         -- Numerical binary operators
         (        "+", numFoldOp (+) )
       , (        "-", numFoldOp (-) )

@@ -11,7 +11,7 @@ import LispError
 
 import           Evaluate.Mutable (EnvR)
 import qualified Evaluate.Mutable as Mutable
-import qualified Evaluate.Primitive as Primitive
+import qualified Evaluate.Standard as Standard
 
 import Control.Monad.Error
 
@@ -31,7 +31,7 @@ evaluate e (List (Atom "if"    : xs )) = ifLisp e xs
 evaluate e (List (Atom "set!"  : xs )) = set e xs
 evaluate e (List (Atom "define": xs )) = define e xs
 evaluate e (List (Atom "begin" : xs )) = begin e xs
-evaluate e (List (Atom f       :args)) = mapM (evaluate e) args >>= liftThrows . Primitive.apply f
+evaluate e (List (Atom f       :args)) = mapM (evaluate e) args >>= liftThrows . Standard.apply f
 evaluate _ unknown                     = throwError . BadExpr $ show unknown
 
 
