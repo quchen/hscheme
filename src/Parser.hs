@@ -5,12 +5,12 @@ module Parser (
 import LispLanguage
 
 import Control.Applicative
+import Control.Monad
 import LispError
-import Text.Parsec hiding ((<|>), many)
+import Text.Parsec as P hiding ((<|>), many)
 import Text.Parsec.String
 
 -- TODO: Add quasiquotation support -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-7.html#%_sec_4.2.6
--- TODO: Add comment support
 
 -- TODO write Read instance for LispVal
 -- see http://stackoverflow.com/q/14523728/1106679
@@ -20,14 +20,30 @@ import Text.Parsec.String
 
 
 
-spacesP :: Parser String
-spacesP = many space
+-- | Parses (and discards) consecutive whitespaces.
+whitespaceP :: Parser ()
+whitespaceP = void $ many space
 
+-- | Parses a Lisp comment, i.e. an expression ranging from ';' to newline or
+--   end of input.
+commentP :: Parser ()
+commentP = void $ char ';' >> manyTill anyChar (eol <|> eof)
+
+-- | Parses (and discards) one Unix/Windows/OSX line end.
+eol :: Parser ()
+eol = void (char '\n')
+      <|>
+      char '\r' *> P.optional (char '\n')
+      <?> "\"\\n\", \"\\r\" or \"\\r\\n\""
+
+-- | Discards any combination of comments and whitespaces.
+ignoreP :: Parser ()
+ignoreP = whitespaceP <* sepEndBy commentP whitespaceP
+
+-- | Allowed Lisp symbols.
 symbolP :: Parser Char
 symbolP = oneOf "!$%&|*+-/:<=>?@^_~"
 
-
--- Lisp value parsers
 
 -- | Parses an Atom, unless it's prefixed with "#" (for Bool) or "-" (for
 --   negative numbers)
@@ -48,8 +64,8 @@ boolP = Bool . toBool <$> (char '#' *> (oneOf "tf" <?> hint))
 listP :: Parser LispValue
 listP = do
       _ <- char '('
-      xs <- expressionP `endBy` spacesP
-      dot <- optionMaybe $ char '.' *> spacesP *> expressionP <* spacesP
+      xs <- expressionP `endBy` ignoreP
+      dot <- optionMaybe $ char '.' *> ignoreP *> expressionP <* ignoreP
       _ <- char ')'
       return $ maybe (List xs) (List' xs) dot
 
@@ -92,15 +108,20 @@ quotedP = do
 
 -- | Parses a whole expression.
 expressionP :: Parser LispValue
-expressionP =     boolP
+expressionP = ignoreP *> (
+                  boolP
               <|> miscP
               <|> numberP False
               <|> stringP
               <|> listP
               <|> quotedP
+              )
+
+lispP :: Parser LispValue
+lispP = ignoreP *> expressionP <* ignoreP <* eof
 
 parseLisp :: String -> Either LispError LispValue
-parseLisp = toLispError . parse expressionP "Lisp code parser"
+parseLisp = toLispError . parse lispP "Lisp code parser"
       where -- Convert Parsec error to Lisp error
             toLispError = mapLeft BadParse
             mapLeft f (Left  l) = Left (f l)

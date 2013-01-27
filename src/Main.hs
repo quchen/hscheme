@@ -85,13 +85,14 @@ testExpressions = do
                         , "(set! hworld \"Jelly World!\")" -- Setting known variable
                         , "hworld" -- Reading altered variable
                         , "(cdr (if (< 1 2) (define x '(1 . 2)) (define x '(2 3))))"
+                        , " ; XXX\\n\n (+ (cdr x) ; #This#\\n\n ; #should#\\n\n 3 ;;; #be 5#\\n\n ) ; XXX " -- Comments everywhere
                         ]
 
       let maxLength = maximum . map length $ expressions
       env <- newEnv
       results <- forM expressions $ fullEvaluate env
 
-      let codeResultPairs = zip expressions results
+      let codeResultPairs = zip (map (unwords . lines) $ expressions) results
           showUnEither (Left l) = show l
           showUnEither (Right r) = show r
           prettyPrintf (lisp, result) = printf "%*s   ==>   %s\n"
