@@ -1,5 +1,8 @@
 module LispError (
-      LispError(..)
+        LispError(..)
+      , ThrowsError
+      , ThrowsErrorIO
+      , liftThrows
 ) where
 
 import LispLanguage () -- Import only instances
@@ -35,6 +38,8 @@ show' (BadArg b) = printf pattern b
       where pattern = "Bad argument: %s"
 show' (BadParse b) = printf pattern (show b)
       where pattern = "Parse error: %s"
+show' (UnknownVar v) = printf pattern v
+      where pattern = "Unknown variable '%s'"
 
 -- | Generates a plural "s" for numbers greater than 1.
 pluralS :: (Num a, Ord a) => a -> String
@@ -44,3 +49,13 @@ pluralS x | x > 1     = "s"
 instance Error LispError where
       noMsg  = Generic "An error occurred"
       strMsg = Generic
+
+
+type ThrowsError = Either LispError
+
+type ThrowsErrorIO = ErrorT LispError IO
+
+-- | Lifts a non-IO error into the error transformer
+liftThrows :: ThrowsError a -> ThrowsErrorIO a
+liftThrows (Right r) = return r
+liftThrows (Left  l) = throwError l

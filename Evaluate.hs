@@ -1,5 +1,7 @@
 module Evaluate (
-      evaluate
+      evaluate,
+      newEnv,
+      EnvR
 ) where
 
 import LispLanguage
@@ -14,15 +16,6 @@ import Data.Map hiding (map)
 import Data.IORef
 import Prelude hiding (lookup) -- FU prelude
 
-type ThrowsError = Either LispError
-
-type ThrowsErrorIO = ErrorT LispError IO
-
--- | Lifts a non-IO error into the error transformer
-liftThrows :: ThrowsError a -> ThrowsErrorIO a
-liftThrows (Right r) = return r
-liftThrows (Left  l) = throwError l
-
 
 
 
@@ -35,8 +28,9 @@ type Env = Map String (IORef LispValue)
 -- | Pointer to the variable database (R = Reference)
 type EnvR = IORef Env
 
-emptyEnv :: IO EnvR
-emptyEnv = newIORef empty
+-- | New empty environment
+newEnv :: IO EnvR
+newEnv = newIORef empty
 
 -- | Checks whether a variable is set in the current environment.
 isSet :: EnvR
@@ -80,8 +74,6 @@ defineVar envR var value = do
       liftIO $ writeIORef envR $ insert var valueR env
       return value
 
-      -- bindVars :: Env -> [(String, LispVal)] -> IO Env
-
 -- | Creates an environment with certain new variables
 setScopeVars :: EnvR -> [(String, LispValue)] -> IO EnvR
 setScopeVars envR assocs = readIORef envR >>= addVars >>= newIORef
@@ -109,15 +101,17 @@ setScopeVars envR assocs = readIORef envR >>= addVars >>= newIORef
 -- | Evaluates a Lisp tree.
 -- TODO: evaluate equal?
 -- TODO: evaluate cond, case -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-7.html#%_sec_4.2.1
-evaluate :: LispValue -> ThrowsError LispValue
-evaluate x@(Atom _)                  = return x
-evaluate x@(Bool _)                  = return x
-evaluate x@(Number _)                = return x
-evaluate x@(String _)                = return x
-evaluate (List (Atom "if" : xs))     = ifLisp xs
-evaluate (List (Atom "quote" : xs )) = quote xs
-evaluate (List (Atom f : args))      = mapM evaluate args >>= apply f
-evaluate unknown                     = throwError . BadExpr $ show unknown
+evaluate :: EnvR -> LispValue -> ThrowsErrorIO LispValue
+evaluate _ x@(Bool _)                  = return x
+evaluate _ x@(Number _)                = return x
+evaluate _ x@(String _)                = return x
+evaluate e (Atom x)                    = readVar e x
+evaluate _ (List (Atom "quote" : xs )) = quote xs
+evaluate e (List (Atom "if"    : xs )) = ifLisp e xs
+evaluate e (List (Atom "set!"  : xs )) = set e xs
+evaluate e (List (Atom "define": xs )) = define e xs
+evaluate e (List (Atom f       :args)) = mapM (evaluate e) args >>= liftThrows . apply f
+evaluate _ unknown                     = throwError . BadExpr $ show unknown
 
 
 
@@ -239,14 +233,30 @@ unpackString _          = throwError $ BadArg "Expecting string"
 
 
 
+-- #############################################################################
+-- ## Variable handling ########################################################
+-- #############################################################################
+
+set :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
+set    env [Atom var, value] = evaluate env value >>= setVar env var
+set    _   [_       , _    ] = throwError $ BadArg "Expecting atom"
+set    _   xs                = throwError $ NumArgs 2 (length xs) "set!"
+
+define :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
+define env [Atom var, value] = evaluate env value >>= defineVar env var
+define _   [_       , _    ] = throwError $ BadArg "Expecting atom"
+define _   xs                = throwError $ NumArgs 2 (length xs) "define"
+
+
 
 -- #############################################################################
 -- ## If statement #############################################################
 -- #############################################################################
 
-ifLisp [ Bool False, _     , ifFalse ] = evaluate ifFalse
-ifLisp [ _         , ifTrue, _       ] = evaluate ifTrue
-ifLisp xs = throwError $ NumArgs 3 (length xs) "if"
+ifLisp :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
+ifLisp envR [ Bool False, _     , ifFalse ] = evaluate envR ifFalse
+ifLisp envR [ _         , ifTrue, _       ] = evaluate envR ifTrue
+ifLisp _    xs = throwError $ NumArgs 3 (length xs) "if"
 
 
 
@@ -256,6 +266,7 @@ ifLisp xs = throwError $ NumArgs 3 (length xs) "if"
 -- ## Quotation ################################################################
 -- #############################################################################
 
+quote :: [LispValue] -> ThrowsErrorIO LispValue
 quote [expr] = return expr
 quote xs     = throwError $ NumArgs 1 (length xs) "quote"
 
@@ -278,6 +289,7 @@ car xs                 = throwError $ NumArgs 1 (length xs) "car"
 -- | cdr returns all but the first element of a list.
 cdr :: [LispValue] -> ThrowsError LispValue
 cdr [List  (x:xs)    ] = return $ List xs
+cdr [List' [x]    dot] = return dot
 cdr [List' (x:xs) dot] = return $ List' xs dot
 cdr [_               ] = throwError $ BadArg "Expected (dotted?) list"
 cdr xs                 = throwError $ NumArgs 1 (length xs) "cdr"

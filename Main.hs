@@ -7,24 +7,41 @@ import Evaluate
 import Text.Printf
 import Control.Monad
 import System.Environment
+import Control.Monad.Error
+import Data.List (maximumBy)
+import Data.Ord (comparing)
+import System.IO
 
 main :: IO ()
-main = testExpressions
+main = do
+      hSetBuffering stdin NoBuffering
+      hSetBuffering stdout NoBuffering
+      runWithArgs
 
 -- | Start a REPL (Read-Evaluate-Print Loop)
 repl :: IO ()
-repl = do
-      expr <- putStr "> " >> getLine
-      putStr ">>> "
-      either print print $ parseLisp expr >>= evaluate
-      repl
+repl = newEnv >>= repl'
+      where repl' env = do
+                  putStr "> "
+                  expr <- getLine
+                  putStr ">>> "
+                  result <- fullEvaluate env expr
+                  either print print result
+                  repl' env
 
 -- | Runs command line argument as Lisp if given, otherwise starts the REPL.
 runWithArgs :: IO ()
 runWithArgs = do
       args <- getArgs
-      case args of (lisp:_) -> either print print $ parseLisp lisp >>= evaluate
+      env <- newEnv
+      case args of (lisp:_) -> fullEvaluate env lisp >>= either print print
                    _        -> repl
+
+-- | Parses and evaluates a Lisp expression,.
+fullEvaluate :: EnvR -- ^ Pointer to the environment to run in
+             -> String -- ^ Lisp code
+             -> IO (Either LispError LispValue)
+fullEvaluate env expr = runErrorT $ liftThrows (parseLisp expr) >>= evaluate env
 
 -- | Prints a couple of Lisp expressions and what they evaluate to
 testExpressions :: IO ()
@@ -33,14 +50,14 @@ testExpressions = do
       putStrLn "==================="
 
       let expressions = [ "#t" -- Bool
-                        , "\"he\\\\\\\"l\\\\lo\"" -- Complicated string. Note that Haskell parses every second backslash away, then Parsec will do the same. Therefore, only 1/4 of the backslashes actually make it to Lisp :-)
+                        , "\"he\\\"l\\lo\"" -- Complicated string. Note that Haskell parses every second backslash away, then Parsec will do the same. Therefore, only 1/4 of the backslashes actually make it to Lisp :-)
                         , "(1 2 3 4)" -- List
                         , "'(1 2 3 4)" -- List
                         , "(1 2 3 . 4)" -- Dotted list
                         , "'(1 2 3 . 4)" -- Dotted list
                         , "(- 1 2 3 4)" -- Primitive
                         , "(+ (- 4 2 1) 3 5 6)" -- Nested
-                        , "(- 2 (* -4 -2))" -- Negative number
+                        , "(- 2 (* -4 -2))" -- Negative numbers
                         , "'(+ 1 2 3 4)" -- Quoted expression
                         , "(quote 'a 'b)" -- Quoted expression
                         , "(|| #t #f)" -- Boolean binary operator
@@ -64,31 +81,45 @@ testExpressions = do
                         , "(eq? '(1 2 3) '(1 2 3))" -- eq? for two lists
                         , "(eq? 1 '(1 2 3))" -- eq? for number/list
                         , "(eq? 1 2 3)" -- eq? with too many args
+                        , "(set! hworld \"Hello World!\")" -- Seting unknown variable
+                        , "(define hworld \"Hello World!\")" -- Defining unknown variable
+                        , "hworld" -- Reading variable
+                        , "(set! hworld \"Jelly World!\")" -- Setting known variable
+                        , "hworld" -- Reading altered variable
+                        , "(cdr (if (< 1 2) (define x '(1 . 2)) (define x '(2 3))))"
                         ]
 
+      let maxLength = maximum . map length $ expressions
+      env <- newEnv
+      results <- forM expressions $ fullEvaluate env
 
-      let maxLength = maximum . map (length . prettyShow . getLisp)
-            -- The above parses the stuff before evaluation, but this is just
-            -- a toy expression anyway
-      forM_ expressions $ doEverything (maxLength expressions)
+      let codeResultPairs = zip expressions results
+          showUnEither (Left l) = show l
+          showUnEither (Right r) = show r
+          prettyPrintf (lisp, result) = printf "%*s   ==>   %s\n"
+                                               maxLength
+                                               lisp
+                                               (showUnEither result)
+
+      mapM_ prettyPrintf codeResultPairs
 
 
 -- DIRTY SECTION
 
-unEither :: Either LispError LispValue -> LispValue
-unEither = either (error . show) id
+-- unEither :: Either LispError LispValue -> LispValue
+-- unEither = either (error . show) id
 
--- | Parses and un-eithers lisp code
-getLisp :: String -> LispValue
-getLisp = either (error . show) id . parseLisp
+-- -- | Parses and un-eithers lisp code
+-- getLisp :: String -> LispValue
+-- getLisp = either (error . show) id . parseLisp
 
--- | Evaluates a lisp value and formats it to a pretty string
-prettyEval :: Int -> LispValue -> String
-prettyEval pad lisp = printf "%*s   ==>   %s" pad
-                                              (prettyShow lisp)
-                                              (either show prettyShow $ evaluate lisp)
+-- -- | Evaluates a lisp value and formats it to a pretty string
+-- prettyEval :: Int -> LispValue -> String
+-- prettyEval pad lisp = printf "%*s   ==>   %s" pad
+--                                               (prettyShow lisp)
+--                                               (either show prettyShow $ evaluate lisp)
 
--- | Read, parse, evaluate, prettyprint Lisp. First argument is padding so that
---   multiple expressions can be printed the same way.
-doEverything :: Int -> String -> IO ()
-doEverything pad = putStrLn . prettyEval pad . getLisp
+-- -- | Read, parse, evaluate, prettyprint Lisp. First argument is padding so that
+-- --   multiple expressions can be printed the same way.
+-- doEverything :: Int -> String -> IO ()
+-- doEverything pad = putStrLn . prettyEval pad . getLisp
