@@ -110,23 +110,14 @@ setScopeVars envR assocs = readIORef envR >>= addVars >>= newIORef
 -- TODO: evaluate equal?
 -- TODO: evaluate cond, case -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-7.html#%_sec_4.2.1
 evaluate :: LispValue -> ThrowsError LispValue
-
--- Primitive evaluators
-evaluate x@(Atom _)   = return x
-evaluate x@(Bool _)   = return x
-evaluate x@(Number _) = return x
-evaluate x@(String _) = return x
-
--- If statement
-evaluate (List (Atom "if" : xs)) = ifLisp xs
-
--- Quoted datums. Leaves its argument unevaluated.
+evaluate x@(Atom _)                  = return x
+evaluate x@(Bool _)                  = return x
+evaluate x@(Number _)                = return x
+evaluate x@(String _)                = return x
+evaluate (List (Atom "if" : xs))     = ifLisp xs
 evaluate (List (Atom "quote" : xs )) = quote xs
-
--- Other function application.
-evaluate (List (Atom f : args)) = mapM evaluate args >>= apply f
-
-evaluate unknown = throwError . BadExpr $ show unknown
+evaluate (List (Atom f : args))      = mapM evaluate args >>= apply f
+evaluate unknown                     = throwError . BadExpr $ show unknown
 
 
 
@@ -253,8 +244,8 @@ unpackString _          = throwError $ BadArg "Expecting string"
 -- ## If statement #############################################################
 -- #############################################################################
 
-ifLisp [p, ifTrue, ifFalse] = evaluate $ case p of (Bool False) -> ifFalse
-                                                   _anything    -> ifTrue
+ifLisp [ Bool False, _     , ifFalse ] = evaluate ifFalse
+ifLisp [ _         , ifTrue, _       ] = evaluate ifTrue
 ifLisp xs = throwError $ NumArgs 3 (length xs) "if"
 
 
