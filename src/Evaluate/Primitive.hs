@@ -58,7 +58,7 @@ primitiveFunctions = fromList [
 
         -- String boolean operators
       , (  "string=?", strBoolBinOp (==) )
-      , (  "string<?", strBoolBinOp (<) )
+      , (  "string<?", strBoolBinOp (<)  )
       , (  "string>?", strBoolBinOp (>)  )
       , ( "string<=?", strBoolBinOp (<=) )
       , ( "string>=?", strBoolBinOp (>=) )
@@ -71,7 +71,7 @@ primitiveFunctions = fromList [
 
 -- | Applies numerical binary operators.
 numFoldOp :: (Integer -> Integer -> Integer) -- ^ Binary function
-         -> [LispValue]                     -- Argument list to fold over
+         -> [LispValue]                      -- Argument list to fold over
          -> ThrowsError LispValue
 numFoldOp f (x:xs) = foldM f' x xs
       where f' (Number a) (Number b) = return . Number $ a `f` b
@@ -81,8 +81,8 @@ numFoldOp _ args = throwError $ NumArgs 2 (length args) "Numerical binary functi
 
 -- | Applies binary operators that map to Bool.
 boolBinOp :: (LispValue -> ThrowsError a) -- ^ Unpacking function
-          -> (a -> a -> Bool)                  -- ^ Binary operator
-          -> [LispValue]                       -- ^ Arguments
+          -> (a -> a -> Bool)             -- ^ Binary operator
+          -> [LispValue]                  -- ^ Arguments
           -> ThrowsError LispValue
 boolBinOp unpack f [x,y] = Bool <$> liftM2 f (unpack x) (unpack y)
 boolBinOp _      _ args  = throwError $ NumArgs 2 (length args) "Boolean binary function"

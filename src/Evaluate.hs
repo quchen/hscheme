@@ -30,6 +30,7 @@ evaluate _ (List (Atom "quote" : xs )) = quote xs
 evaluate e (List (Atom "if"    : xs )) = ifLisp e xs
 evaluate e (List (Atom "set!"  : xs )) = set e xs
 evaluate e (List (Atom "define": xs )) = define e xs
+evaluate e (List (Atom "begin" : xs )) = begin e xs
 evaluate e (List (Atom f       :args)) = mapM (evaluate e) args >>= liftThrows . Primitive.apply f
 evaluate _ unknown                     = throwError . BadExpr $ show unknown
 
@@ -56,3 +57,10 @@ ifLisp _ args = throwError $ NumArgs 3 (length args) "if"
 quote :: [LispValue] -> ThrowsErrorIO LispValue
 quote [expr] = return expr
 quote args   = throwError $ NumArgs 1 (length args) "quote"
+
+-- | Sequencing. Evaluates the arguments in order, and returns the last result.
+begin :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
+begin _    []     = throwError $ NumArgs 1 0 "begin"
+begin envR (x:xs) = foldM eval2 x xs
+      where eval2 _ = evaluate envR
+-- TODO: Error message type for "expected: >= 2 args"

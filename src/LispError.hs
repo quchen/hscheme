@@ -11,14 +11,14 @@ import Text.Printf
 import Text.Parsec (ParseError)
 
 data LispError =
-        Generic String -- ^ If you don't know better
-      | BadExpr String -- ^ Evaluating stuff 'evaluate' doesn't support
-      | UnknownFunc String -- ^ Function unknown
+        Generic String         -- ^ If you don't know better
+      | BadExpr String         -- ^ Evaluating stuff 'evaluate' doesn't support
+      | UnknownFunc String     -- ^ Function unknown
       | NumArgs Int Int String -- ^ Wrong number of arguments.
                                --   Format: expected, given, name
-      | BadArg String -- ^ Bad argument, e.g. (- "1")
-      | BadParse ParseError -- ^ Parsec complained
-      | UnknownVar String -- ^ Variable not set
+      | BadArg String          -- ^ Bad argument, e.g. (- "1")
+      | BadParse ParseError    -- ^ Parsec complained
+      | UnknownVar String      -- ^ Variable not set
 
 instance Show LispError where
       show x = printf "### Error: %s" (show' x)
@@ -27,7 +27,7 @@ instance Show LispError where
 --   stuff.
 show' :: LispError -> String
 show' (Generic s) = printf pattern s
-      where pattern = "An error occurred: '%s'"
+      where pattern = "%s"
 show' (BadExpr e) = printf pattern e
       where pattern = "Unrecognized expression: '%s' (Did you forget a quote?)"
 show' (UnknownFunc f) = printf pattern f

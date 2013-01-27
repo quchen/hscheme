@@ -87,8 +87,8 @@ setScopeVars envR newVars = readIORef envR >>= addVars >>= newIORef
             addVars env = do
                   env' <- fmap fromList $ mapM makeRef newVars
                   return $ env' <> env -- Note that (<>) is left-biased for
-                                         -- Data.Map, therefore env' variables
-                                         -- are inserted with higher priority.
+                                       -- Data.Map, therefore env' variables
+                                       -- are inserted with higher priority.
 
             -- | Takes (var, value) and packs the value into an IORef, resulting
             --   in (var, IORef value).
