@@ -23,8 +23,7 @@ data LispError =
 instance Show LispError where
       show x = printf "### Error: %s" (show' x)
 
--- | Prettyprints a single error. Wrapped by the Show instance to prepend
---   stuff.
+-- | Prettyprints a single error. Wrapped by the Show instance to prepend stuff.
 show' :: LispError -> String
 show' (Generic s) = printf pattern s
       where pattern = "%s"

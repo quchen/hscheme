@@ -1,5 +1,5 @@
 -- | Evaluates a Lisp tree. This module contains the actual 'evaluate' function,
---   and all the primitives that could not
+--   and the primitive expressions of chapter 4 of the R5RS report.
 module Evaluate (
       evaluate,
       Mutable.newEnv,
@@ -15,6 +15,9 @@ import qualified Evaluate.Standard as Standard
 
 import Control.Monad.Error
 
+-- ##########################
+-- ### TODO: Lambdas. !!! ###
+-- ##########################
 
 -- TODO: evaluate equal?
 -- TODO: evaluate cond, case -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-7.html#%_sec_4.2.1
@@ -22,17 +25,19 @@ import Control.Monad.Error
 
 -- | Evaluates a Lisp tree.
 evaluate :: EnvR -> LispValue -> ThrowsErrorIO LispValue
-evaluate _ x@(Bool _)                  = return x
-evaluate _ x@(Number _)                = return x
-evaluate _ x@(String _)                = return x
-evaluate e (Atom x)                    = Mutable.readVar e x
-evaluate _ (List (Atom "quote" : xs )) = quote xs
-evaluate e (List (Atom "if"    : xs )) = ifLisp e xs
-evaluate e (List (Atom "set!"  : xs )) = set e xs
-evaluate e (List (Atom "define": xs )) = define e xs
-evaluate e (List (Atom "begin" : xs )) = begin e xs
-evaluate e (List (Atom f       :args)) = mapM (evaluate e) args >>= liftThrows . Standard.apply f
-evaluate _ unknown                     = throwError . BadExpr $ show unknown
+evaluate _ x@(Bool _)                   = return x
+evaluate _ x@(Number _)                 = return x
+evaluate _ x@(String _)                 = return x
+evaluate e (Atom x)                     = Mutable.readVar e x
+evaluate _ (List (Atom "quote"  : xs )) = quote xs
+evaluate e (List (Atom "if"     : xs )) = ifLisp e xs
+evaluate e (List (Atom "set!"   : xs )) = set    e xs
+evaluate e (List (Atom "define" : xs )) = define e xs
+evaluate e (List (Atom "begin"  : xs )) = begin  e xs
+evaluate e (List (Atom "lambda" : xs )) = e `seq` xs `seq` throwError . BadExpr $ "Lambdas are not yet implemented" -- TODO: Change this fact.
+                                          -- ^ Mutes "unused binding" errors.
+evaluate e (List (Atom f        : xs )) = mapM (evaluate e) xs >>= liftThrows . Standard.apply f
+evaluate _ unknown                      = throwError . BadExpr $ show unknown
 
 
 -- | Updates an already existing variable

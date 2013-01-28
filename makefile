@@ -3,7 +3,7 @@ INCLUDE = src
 HS = ghc --make -i$(INCLUDE)
 
 all :
-	$(HS) -O2 ./src/Main.hs -o $(EXENAME)
+	$(HS) -O ./src/Main.hs -o $(EXENAME)
 
 debug :
 	@echo -n "GHC: "
