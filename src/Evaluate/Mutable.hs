@@ -1,6 +1,5 @@
 -- | Defines an environment and functions to work with mutable variables.
 module Evaluate.Mutable (
-      EnvR,
       newEnv,
       isSet,
       readVar,
@@ -21,15 +20,8 @@ import Data.Monoid
 import Prelude hiding (lookup)
 
 
+import LispLanguage
 
--- | Variable database. Variable values are mutable, but variable definitions
---   are not. Use 'EnvR' for that.
-type Env = Map String (IORef LispValue)
-
--- | Pointer to the variable database (R = Reference). Same as 'Env', but in an
---   'EnvR' variables can be created. (Note that there's no Scheme function for
---   deleting variables, although this interface would permit making one.)
-type EnvR = IORef Env
 
 -- | New empty environment
 newEnv :: IO EnvR

@@ -19,6 +19,8 @@ import Control.Monad.Error
 
 
 
+
+
 -- | Applies a function to an argument list
 apply :: String -- ^ Name of the function
       -> [LispValue] -- ^ Argument list

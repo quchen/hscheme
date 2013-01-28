@@ -1,10 +1,27 @@
 module LispLanguage (
       LispValue(..),
       prettyShow,
-      debugShow
+      debugShow,
+      Env,
+      EnvR
 ) where
 
+import LispError (ThrowsErrorIO)
+
 import Text.Printf
+import Data.Map (Map)
+import Data.IORef
+
+
+-- | Variable database. Variable values are mutable, but variable definitions
+--   are not. Use 'EnvR' for that.
+type Env = Map String (IORef LispValue)
+
+-- | Pointer to the variable database (R = Reference). Same as 'Env', but in an
+--   'EnvR' variables can be created. (Note that there's no Scheme function for
+--   deleting variables, although this interface would permit making one.)
+type EnvR = IORef Env
+
 
 data LispValue = Atom String
                | Bool Bool
@@ -12,10 +29,21 @@ data LispValue = Atom String
                | List' [LispValue] LispValue
                | Number Integer
                | String String
-               deriving (Eq)
+               | PrimitiveF ([LispValue] -> ThrowsErrorIO LispValue)
+               | Lambda [String] (Maybe String) [LispValue] EnvR
 -- TODO: Add Char -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-9.html#%_sec_6.3.4
 -- TODO: Add other numbers -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-9.html#%_sec_6.2.1
 -- TODO: Add vectors -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-9.html#%_sec_6.3.6
+
+instance Eq LispValue where
+      (Atom a) == (Atom b) = a == b
+      (Bool a) == (Bool b) = a == b
+      (List a) == (List b) = a == b
+      (List' a aDot) == (List' b bDot) = (a, aDot) == (b, bDot)
+      (Number a) == (Number b) = a == b
+      (String a) == (String b) = a == b
+      (PrimitiveF _) == (PrimitiveF _) = False
+      (Lambda a1 a2 a3 a4) == (Lambda b1 b2 b3 b4) = (a1, a2, a3, a4) == (b1, b2, b3, b4)
 
 
 instance Show LispValue where
@@ -31,6 +59,11 @@ prettyShow (List [Atom "quote", x]) = '\'' : show x
 prettyShow (List l)    = encloseIn "(" ")" $ spacedShow prettyShow l
 prettyShow (List' l d) = encloseIn "(" ")" $
                          spacedShow prettyShow l ++ " . "++ prettyShow d
+prettyShow (PrimitiveF _) = "<primitive>"
+prettyShow (Lambda args vararg _body _env)
+      = printf "(lambda (%s%s) ...)" args' vararg'
+      where args' = unwords args
+            vararg' = maybe "" (" . " ++) vararg
 
 -- | Adds types to printouts for debugging.
 --   This is similar to the auto-derived instance.
@@ -42,6 +75,9 @@ debugShow (String s)  = printf "String:\"%s\"" s
 debugShow (List l)    = encloseIn "(" ")" $ spacedShow debugShow l
 debugShow (List' l d) = encloseIn "(" ")" $
                         spacedShow debugShow l ++ " . "++ debugShow d
+debugShow f@(PrimitiveF _) = prettyShow f
+debugShow l@(Lambda _ _ _ _) = prettyShow l
+
 
 
 -- | Shows the list's elements separated by spaces.
