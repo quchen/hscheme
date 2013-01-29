@@ -1,7 +1,7 @@
 -- | Standard built-in functions, in the sense that they're hardcoded in the
 --   interpreter. (R6RS standard, chapter 6)
 module Evaluate.Standard (
-      apply
+      functions
 ) where
 
 import LispLanguage
@@ -10,28 +10,18 @@ import LispError
 import qualified Evaluate.List as List
 import qualified Evaluate.Equality as Equality
 
-import Data.Map
+import Data.Map hiding (map)
 import Prelude hiding (lookup)
 import Data.Functor
 import Control.Monad
 import Control.Monad.Error
+import Control.Arrow ((***))
 
-
-
-
-
-
--- | Applies a function to an argument list
-apply :: String -- ^ Name of the function
-      -> [LispValue] -- ^ Argument list
-      -> ThrowsError LispValue
-apply fName args = maybe (throwError $ UnknownFunc fName)
-                         ($ args)
-                         (lookup fName standardFunctions)
 
 -- | Collection of standard functions.
-standardFunctions :: Map String ([LispValue] -> ThrowsError LispValue)
-standardFunctions = fromList [
+--   Map from String (function name) to a PrimitiveF :: LispValue.
+functions :: Map String LispValue
+functions = fromList . map (id *** PrimitiveF) $ [
         -- Numerical binary operators
         (        "+", numFoldOp (+) )
       , (        "-", numFoldOp (-) )

@@ -14,9 +14,6 @@ import Text.Parsec.String
 
 -- TODO write Read instance for LispVal
 -- see http://stackoverflow.com/q/14523728/1106679
--- instance Read LispValue where
---       readsPrec = either undefined undefined parseResult
---             where parseResult = parse undefined
 
 
 

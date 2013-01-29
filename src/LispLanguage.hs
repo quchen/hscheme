@@ -6,7 +6,7 @@ module LispLanguage (
       EnvR
 ) where
 
-import LispError (ThrowsErrorIO)
+import LispError (ThrowsError)
 
 import Text.Printf
 import Data.Map (Map)
@@ -29,7 +29,7 @@ data LispValue = Atom String
                | List' [LispValue] LispValue
                | Number Integer
                | String String
-               | PrimitiveF ([LispValue] -> ThrowsErrorIO LispValue)
+               | PrimitiveF ([LispValue] -> ThrowsError LispValue)
                | Lambda [String] (Maybe String) [LispValue] EnvR
 -- TODO: Add Char -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-9.html#%_sec_6.3.4
 -- TODO: Add other numbers -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-9.html#%_sec_6.2.1
@@ -56,8 +56,8 @@ prettyShow (Bool b)    = if b then "#t" else "#f"
 prettyShow (Number i)  = show i
 prettyShow (String s)  = printf "\"%s\"" s
 prettyShow (List [Atom "quote", x]) = '\'' : show x
-prettyShow (List l)    = encloseIn "(" ")" $ spacedShow prettyShow l
-prettyShow (List' l d) = encloseIn "(" ")" $
+prettyShow (List l)    = printf "(%s)" $ spacedShow prettyShow l
+prettyShow (List' l d) = printf "(%s)" $
                          spacedShow prettyShow l ++ " . "++ prettyShow d
 prettyShow (PrimitiveF _) = "<primitive>"
 prettyShow (Lambda args vararg _body _env)
@@ -68,23 +68,22 @@ prettyShow (Lambda args vararg _body _env)
 -- | Adds types to printouts for debugging.
 --   This is similar to the auto-derived instance.
 debugShow :: LispValue -> String
-debugShow (Atom s)    = printf "Atom:%s" s
-debugShow (Bool b)    = printf "Bool:%s" (show b)
-debugShow (Number i)  = printf "Number:%s" (show i)
-debugShow (String s)  = printf "String:\"%s\"" s
-debugShow (List l)    = encloseIn "(" ")" $ spacedShow debugShow l
-debugShow (List' l d) = encloseIn "(" ")" $
-                        spacedShow debugShow l ++ " . "++ debugShow d
-debugShow f@(PrimitiveF _) = prettyShow f
+debugShow (Atom s)           = printf "Atom:%s" s
+debugShow (Bool b)           = printf "Bool:%s" (show b)
+debugShow (Number i)         = printf "Number:%s" (show i)
+debugShow (String s)         = printf "String:\"%s\"" s
+debugShow (List l)           = printf "(%s)" $ spacedShow debugShow l
+debugShow (List' l d)        = printf "(%s . %s)" (spacedShow debugShow l)
+                                                  (debugShow d)
+debugShow f@(PrimitiveF _)   = prettyShow f
 debugShow l@(Lambda _ _ _ _) = prettyShow l
 
 
 
 -- | Shows the list's elements separated by spaces.
-spacedShow :: (Show a) => (a -> String) -> [a] -> String
+--   spacedShow show [1,2,3] = "1 2 3"
+spacedShow :: (Show a)
+           => (a -> String) -- ^ Showing function
+           -> [a]           -- ^ List to show
+           -> String
 spacedShow showF = unwords . map showF
-
--- | Encloses a list in two other lists.
---   Example: encloseIn "(" ")" "hello" ==> "(hello)"
-encloseIn :: [a] -> [a] -> [a] -> [a]
-encloseIn open close = (open ++) . (++ close)
