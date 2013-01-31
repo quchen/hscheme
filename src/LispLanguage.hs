@@ -30,7 +30,7 @@ data LispValue = Atom String
                | Number Integer
                | String String
                | PrimitiveF ([LispValue] -> ThrowsError LispValue)
-               | Lambda [String] (Maybe String) [LispValue] EnvR
+               | Lambda [String] (Maybe String) LispValue EnvR
 -- TODO: Add Char -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-9.html#%_sec_6.3.4
 -- TODO: Add other numbers -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-9.html#%_sec_6.2.1
 -- TODO: Add vectors -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-9.html#%_sec_6.3.6
@@ -44,6 +44,7 @@ instance Eq LispValue where
       (String a) == (String b) = a == b
       (PrimitiveF _) == (PrimitiveF _) = False
       (Lambda a1 a2 a3 a4) == (Lambda b1 b2 b3 b4) = (a1, a2, a3, a4) == (b1, b2, b3, b4)
+      _ == _ = False
 
 
 instance Show LispValue where
