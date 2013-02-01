@@ -15,8 +15,6 @@ import Data.Map (singleton, fromList)
 import Data.List
 import Data.Maybe
 
-import Debug.Trace
-
 
 -- TODO: evaluate equal?
 -- TODO: evaluate cond, case -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-7.html#%_sec_4.2.1
@@ -36,6 +34,7 @@ evaluate e (List (Atom "begin"  : xs )) = begin   e xs
 evaluate e (List (Atom "lambda" : xs )) = lambda  e xs
 evaluate e (List (Atom "let"    : xs )) = letLisp e xs True
 evaluate e (List (Atom "let*"   : xs )) = letLisp e xs False
+evaluate e (List (Atom "cond"   : xs )) = cond    e xs
 evaluate e (List (f             : xs )) = do evalF <- evaluate e f
                                              args <- mapM (evaluate e) xs
                                              apply evalF args
@@ -63,9 +62,14 @@ define _   args              = throwError $ NumArgs EQ 2 (length args) "define"
 ifLisp :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
 ifLisp envR [ p, trueBranch, falseBranch ] = do
       p' <- evaluate envR p
-      evaluate envR $ case p' of Bool False -> falseBranch
-                                 _else      -> trueBranch
+      evaluate envR $ if isTrue p' then trueBranch
+                                   else falseBranch
 ifLisp _ args = throwError $ NumArgs EQ 3 (length args) "if"
+
+-- | Checks whether an expression is to be considered True or False.
+isTrue :: LispValue -> Bool
+isTrue (Bool False) = False
+isTrue _            = True
 
 -- | Quoted statement are returned unevaluated to the parse tree.
 quote :: [LispValue] -> ThrowsErrorIO LispValue
@@ -148,7 +152,6 @@ apply (Lambda params vararg body envR) args
                             NumArgs GT (lowerBound - 1) numArgs "lambda"
                       throwNeedLess = throwError $
                             NumArgs LT (fromJust upperBound + 1) numArgs "lambda"
-                  traceShow (lowerBound, upperBound) (return ())
                   when (numArgs < lowerBound) throwNeedMore
                   when (maybe False (numArgs >) upperBound) throwNeedLess
 
@@ -182,3 +185,24 @@ apply x xs = throwError . BadExpr . show . List $ (x:xs)
 --       ((lambda (x) (x)) 3)
 --       the 3 is inserted first, and then (3) triggers the above error.
 --       This behavior isn't wrong, but the error message could be better.
+
+
+-- | Conditional.
+cond :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
+cond envR (List [] :_) = throwError $ BadArg "Expected predicate"
+cond envR (List [p] : rest) = do pEval <- evaluate envR p
+                                 if isTrue pEval then return p
+                                                 else cond envR rest
+cond envR (List [p, Atom "=>", expr] : rest) = do
+      pEval <- evaluate envR p
+      if isTrue pEval then do exprEval <- evaluate envR expr
+                              apply exprEval [pEval]
+                      else cond envR rest
+cond envR (List (p : Atom "=>" : expr : xs) : rest) =
+      throwError $ NumArgs EQ 1 (length xs) "=> X"
+cond envR (List (p:exprs):rest) = do
+      pEval <- case p of Atom "else" -> return $ Bool True
+                         _otherwise  -> evaluate envR p
+      if isTrue pEval then begin envR exprs
+                      else cond envR rest
+cond envR [] = throwError $ BadArg "Unsatisfied cond"

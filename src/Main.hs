@@ -103,6 +103,15 @@ testExpressions = do
                         , "(let ((plus +) (a 1) (b 2)) (plus a b))" -- Let bindings
                         , "(let ((too 'many 'args)) 'body)" -- Let bindings
                         , "(let (wrong 'format) 'body)" -- Let bindings
+                        , "(cond (#f 1) (#t 2))" -- Case
+                        , "(cond ((< 3 2) 1) (3 => (lambda (x) (+ 2 x))) (else \"Should be 5\"))" -- => notation
+                        , "(cond (#f \"Wrong\") (else \"Right\"))" -- => notation
+                        , "(cond (#f \"Wrong\"))" -- => notation
+                        , "(cond)" -- => notation
+                        , "(cond ())" -- => notation
+                        , "(cond (1))" -- => notation
+                        , "(cond (#f) (#t))" -- => notation
+                        , "(cond (1 2 \"Result\"))" -- => notation
                         ]
 
       let maxLength = maximum . map length $ expressions
