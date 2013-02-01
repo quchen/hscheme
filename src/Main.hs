@@ -93,9 +93,13 @@ testExpressions = do
                         , "((lambda x x) 3 4 5 6)" -- Vararg lambda
                         , "((lambda (x y . z) z) 3 4 5 6)" -- Vararg lambda
                         , "((lambda (x y . z) ((+ x y) z)) 1 2 4 5 6)" -- Vararg lambda. Fails, because evaluates (3 (4 5 6)).
-                        , "(begin '1 '2 '3)" -- Vararg lambda. Fails, because evaluates (3 (4 5 6)).
-                        , "(begin (define (f x y) (+ x y)) (f 3 5))" -- Vararg lambda. Fails, because evaluates (3 (4 5 6)).
-                        , "(begin (define x 0) (define (f y) (set! x (+ x x y))) (f 1) (f 10) x)" -- Vararg lambda. Fails, because evaluates (3 (4 5 6)).
+                        , "((lambda (x y x) x) 'multi 'bind)" -- Lambda with multiple binds to the same variable
+                        , "((lambda (x) 'Too) 'many 'args)" -- Lambda with multiple binds to the same variable
+                        , "((lambda (x) \"Not enough args\"))" -- Lambda with multiple binds to the same variable
+                        , "(begin)" -- Error: sequence of nothing.
+                        , "(begin '1 '2 '3)" -- Sequence.
+                        , "(begin (define (f x y) (+ x y)) (f 3 5))" -- Sequence with Lambda
+                        , "(begin (define x 0) (define (f y) (set! x (+ x x y))) (f 1) (f 10) x)" -- Sequence with side-effecting Lambda.
                         , "(let ((plus +) (a 1) (b 2)) (plus a b))" -- Let bindings
                         , "(let ((too 'many 'args)) 'body)" -- Let bindings
                         , "(let (wrong 'format) 'body)" -- Let bindings

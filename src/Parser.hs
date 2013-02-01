@@ -63,7 +63,7 @@ listP = do
       void $ char '('
       xs <- many expressionP
       dot <- optionMaybe $ char '.' *> expressionP
-      void $char ')'
+      void $ char ')'
       return $ maybe (List xs) (List' xs) dot
 
 

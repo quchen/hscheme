@@ -68,7 +68,7 @@ numFoldOp f (x:xs) = foldM f' x xs
       where f' (Number a) (Number b) = return . Number $ a `f` b
             f' _          (Number _) = throwError $ BadArg "Expected number"
             f' _          _          = throwError $ BadArg "Expected number"
-numFoldOp _ args = throwError $ NumArgs 2 (length args) "Numerical binary function"
+numFoldOp _ args = throwError $ NumArgs EQ 2 (length args) "Numerical binary function"
 
 -- | Applies binary operators that map to Bool.
 boolBinOp :: (LispValue -> ThrowsError a) -- ^ Unpacking function
@@ -76,7 +76,7 @@ boolBinOp :: (LispValue -> ThrowsError a) -- ^ Unpacking function
           -> [LispValue]                  -- ^ Arguments
           -> ThrowsError LispValue
 boolBinOp unpack f [x,y] = Bool <$> liftM2 f (unpack x) (unpack y)
-boolBinOp _      _ args  = throwError $ NumArgs 2 (length args) "Boolean binary function"
+boolBinOp _      _ args  = throwError $ NumArgs EQ 2 (length args) "Boolean binary function"
 
 -- | Boolean-valued binary integer operator application
 numBoolBinOp :: (Integer -> Integer -> Bool)

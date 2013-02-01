@@ -13,6 +13,9 @@ import qualified Evaluate.Mutable as Mutable
 import Control.Monad.Error
 import Data.Map (singleton, fromList)
 import Data.List
+import Data.Maybe
+
+import Debug.Trace
 
 
 -- TODO: evaluate equal?
@@ -43,7 +46,7 @@ evaluate _ unknown                      = throwError . BadExpr $ show unknown
 set :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
 set    env [Atom var, value] = evaluate env value >>= Mutable.setVar env var
 set    _   [_       , _    ] = throwError $ BadArg "Expected atom"
-set    _   args              = throwError $ NumArgs 2 (length args) "set!"
+set    _   args              = throwError $ NumArgs EQ 2 (length args) "set!"
 
 -- | Defines or updates a variable. If a list starting with an atom is given,
 --   defines a Lambda.
@@ -54,7 +57,7 @@ define envR [Atom var, value] = evaluate envR value >>= Mutable.defineVar envR v
 define envR [List  (Atom f:params)    , body] = lambda envR [List  params    , body] >>= Mutable.defineVar envR f
 define envR [List' (Atom f:params) dot, body] = lambda envR [List' params dot, body] >>= Mutable.defineVar envR f
 define _   [_       , _    ] = throwError $ BadArg "Expected atom"
-define _   args              = throwError $ NumArgs 2 (length args) "define"
+define _   args              = throwError $ NumArgs EQ 2 (length args) "define"
 
 -- | If statement. Only evaluates the branch it needs to.
 ifLisp :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
@@ -62,43 +65,48 @@ ifLisp envR [ p, trueBranch, falseBranch ] = do
       p' <- evaluate envR p
       evaluate envR $ case p' of Bool False -> falseBranch
                                  _else      -> trueBranch
-ifLisp _ args = throwError $ NumArgs 3 (length args) "if"
+ifLisp _ args = throwError $ NumArgs EQ 3 (length args) "if"
 
 -- | Quoted statement are returned unevaluated to the parse tree.
 quote :: [LispValue] -> ThrowsErrorIO LispValue
 quote [expr] = return expr
-quote args   = throwError $ NumArgs 1 (length args) "quote"
+quote args   = throwError $ NumArgs EQ 1 (length args) "quote"
 
 -- | Sequencing. Evaluates the arguments in order, and returns the last result.
 begin :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
-begin _    []     = throwError $ NumArgs 1 0 "begin"
+begin _    []     = throwError $ NumArgs GT 0 0 "begin"
 begin envR [x]    = evaluate envR x
 begin envR (x:xs) = evaluate envR x >> begin envR xs
--- TODO: Error message type for "expected: >= n args"
 
 -- | Lambda handling
 lambda :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
 -- (lambda (x y) body)
 lambda envR [List params, body] = do
       paramNames <- mapM (liftThrows . unAtom) params
+      lambdaCheckMultiBindings paramNames
       return $ Lambda paramNames Nothing body envR
 -- (lambda (x y . dot) body)
 lambda envR [List' params vararg, body] = do
       paramNames <- mapM (liftThrows . unAtom) params
+      lambdaCheckMultiBindings paramNames
       varargName <- (liftThrows . unAtom) vararg
       return $ Lambda paramNames (Just varargName) body envR
 -- (lambda x body)
 lambda envR [Atom varargName, body] =
       return $ Lambda [] (Just varargName) body envR
+lambda _ xs = throwError $ NumArgs EQ 2 (length xs) "lambda"
 
-lambda _ xs = throwError $ NumArgs 2 (length xs) "lambda"
--- TODO: Error when a variable is used multiple times as Lambda parameter
+-- | Helper function for Lambdas. Throws an error if an argument is bound more
+--   than once.
+lambdaCheckMultiBindings :: [String] -> ThrowsErrorIO ()
+lambdaCheckMultiBindings bindings = do
+      let maxCount = maximum . map length . group . sort $ bindings
+      when (maxCount > 1) $
+            throwError $ BadArg "Every variable can occur at most once in a lambda binding"
 
 unAtom :: LispValue -> ThrowsError String
 unAtom (Atom a) = return a
 unAtom _        = throwError $ BadArg "Expected atom"
-
--- TODO: Error message type for "expected: >= n args"
 
 -- | Let binding. Depending on the boolean argument, duplicate bindings produce
 --   an error (let) or not (let*).
@@ -107,7 +115,7 @@ letLisp envR [List bindings, body] errorOnDuplicate = do
       let -- Converts Lisp's (x val) to Haskell's (x, val)
           toTuple (List [Atom var, value]) = do value' <- evaluate envR value
                                                 return (var, value')
-          toTuple (List (Atom var : xs  )) = throwError $ NumArgs 1 (length xs) ("let/" ++ var)
+          toTuple (List (Atom var : xs  )) = throwError $ NumArgs EQ 1 (length xs) ("let/" ++ var)
           toTuple (List (_notAtom : _   )) = throwError $ BadArg "Expected atom"
           toTuple _                        = throwError $ BadArg "Expected list of let bindings"
       bindingTuples <- mapM toTuple bindings
@@ -127,9 +135,25 @@ apply (PrimitiveF f) args = liftThrows $ f args
 apply (Lambda params vararg body envR) args
       -- | TODO error handling
       | False = undefined -- To mute HLint
-      | otherwise = lambdaEnv >>= evalBody
+      | otherwise = do
+            checkNumArgs
+            lambdaEnv >>= evalBody
 
-      where -- Environment made out of the scoped environment plus the variables
+      where checkNumArgs = do
+                  let lowerBound = length params + maybe 0 length vararg
+                      upperBound = maybe (Just lowerBound) (const Nothing) vararg
+                      numArgs = length args
+
+                      throwNeedMore = throwError $
+                            NumArgs GT (lowerBound - 1) numArgs "lambda"
+                      throwNeedLess = throwError $
+                            NumArgs LT (fromJust upperBound + 1) numArgs "lambda"
+                  traceShow (lowerBound, upperBound) (return ())
+                  when (numArgs < lowerBound) throwNeedMore
+                  when (maybe False (numArgs >) upperBound) throwNeedLess
+
+
+            -- Environment made out of the scoped environment plus the variables
             --  bound by the lambda.
             lambdaEnv :: ThrowsErrorIO EnvR
             lambdaEnv =
