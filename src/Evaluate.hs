@@ -43,7 +43,10 @@ set    env [Atom var, value] = evaluate env value >>= Mutable.setVar env var
 set    _   [_       , _    ] = throwError $ BadArg "Expected atom"
 set    _   args              = throwError $ NumArgs 2 (length args) "set!"
 
--- | Defines or updates a variable
+-- | Defines or updates a variable. If a list starting with an atom is given,
+--   defines a Lambda.
+--   (define x 2) ==> defines x = 2
+--   (define (f x) (* 2 x)) ==> defines f(x) = 2*x
 define :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
 define envR [Atom var, value] = evaluate envR value >>= Mutable.defineVar envR var
 define envR [List  (Atom f:params)    , body] = lambda envR [List  params    , body] >>= Mutable.defineVar envR f
@@ -68,7 +71,7 @@ begin _    []     = throwError $ NumArgs 1 0 "begin"
 begin envR (x:xs) = fmap last . mapM (evaluate envR) $ (x:xs)
 -- TODO: Error message type for "expected: >= n args"
 
-
+-- | Lambda handling
 lambda :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
 -- (lambda (x y) body)
 lambda envR [List params, body] = do
@@ -82,7 +85,6 @@ lambda envR [List' params vararg, body] = do
 -- (lambda x body)
 lambda envR [Atom varargName, body] = do
       return $ Lambda [] (Just varargName) body envR
-
 lambda envR lambdaArgs@(_:_) = throwError $ BadArg "Lambdy body must be list"
 
 lambda _ xs = throwError $ NumArgs 2 (length xs) "lambda"
