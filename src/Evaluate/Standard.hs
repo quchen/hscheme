@@ -15,13 +15,13 @@ import Prelude hiding (lookup)
 import Data.Functor
 import Control.Monad
 import Control.Monad.Error
-import Control.Arrow ((***))
+import Control.Arrow (second)
 
 
 -- | Collection of standard functions.
 --   Map from String (function name) to a PrimitiveF :: LispValue.
 functions :: Map String LispValue
-functions = fromList . map (id *** PrimitiveF) $ [
+functions = fromList . map (second PrimitiveF) $ [
         -- Numerical binary operators
         (        "+", numFoldOp (+) )
       , (        "-", numFoldOp (-) )

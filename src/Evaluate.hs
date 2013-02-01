@@ -88,9 +88,8 @@ lambda envR [List' params vararg, body] = do
       varargName <- (liftThrows . unAtom) vararg
       return $ Lambda paramNames (Just varargName) body envR
 -- (lambda x body)
-lambda envR [Atom varargName, body] = do
+lambda envR [Atom varargName, body] =
       return $ Lambda [] (Just varargName) body envR
-lambda envR lambdaArgs@(_:_) = throwError $ BadArg "Lambdy body must be list"
 
 lambda _ xs = throwError $ NumArgs 2 (length xs) "lambda"
 -- TODO: Error when a variable is used multiple times as Lambda parameter
@@ -109,38 +108,39 @@ letLisp envR [List bindings, body] errorOnDuplicate = do
           toTuple (List [Atom var, value]) = do value' <- evaluate envR value
                                                 return (var, value')
           toTuple (List (Atom var : xs  )) = throwError $ NumArgs 1 (length xs) ("let/" ++ var)
-          toTuple (List (     var : xs  )) = throwError $ BadArg "Expected atom"
+          toTuple (List (_notAtom : _   )) = throwError $ BadArg "Expected atom"
           toTuple _                        = throwError $ BadArg "Expected list of let bindings"
       bindingTuples <- mapM toTuple bindings
       let maxCount = maximum (map length . group . sort . map fst $ bindingTuples)
       when (errorOnDuplicate && maxCount > 1) $
             throwError $ BadArg "Every variable can occur at most once in a let binding"
-      closure <- liftIO $ Mutable.setScopeVars (fromList bindingTuples) envR
-      evaluate closure body
+      scopedEnvR <- liftIO $ Mutable.setScopeVars (fromList bindingTuples) envR
+      evaluate scopedEnvR body
+letLisp _ _ _ = throwError $ BadArg "Expected let binding list"
+
 
 
 
 
 apply :: LispValue -> [LispValue] -> ThrowsErrorIO LispValue
 apply (PrimitiveF f) args = liftThrows $ f args
-apply (Lambda params vararg body closure) args
+apply (Lambda params vararg body envR) args
       -- | TODO error handling
+      | False = undefined -- To mute HLint
       | otherwise = lambdaEnv >>= evalBody
 
-      where
-
-            -- Environment made out of the closure plus the variables bound by
-            -- the lambda.
+      where -- Environment made out of the scoped environment plus the variables
+            --  bound by the lambda.
             lambdaEnv :: ThrowsErrorIO EnvR
-            lambdaEnv = do
+            lambdaEnv =
                   -- Set the lambda's arguments in the stored environment
-                  (liftIO $ Mutable.setScopeVars (fromList $ zip params args) closure)
+                  liftIO (Mutable.setScopeVars (fromList $ zip params args) envR)
                   >>=
                   -- Same thing for the vararg
-                  setScopeVararg vararg
+                  setScopeVararg
 
             -- If vararg is present, set them in the environment env
-            setScopeVararg args env = maybe
+            setScopeVararg env = maybe
                   (return env)
                   (\argName -> liftIO $ Mutable.setScopeVars
                                               (singleton argName $ List remainingArgs)

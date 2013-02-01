@@ -77,7 +77,7 @@ debugShow (List l)           = printf "(%s)" $ spacedShow debugShow l
 debugShow (List' l d)        = printf "(%s . %s)" (spacedShow debugShow l)
                                                   (debugShow d)
 debugShow f@(PrimitiveF _)   = prettyShow f
-debugShow l@(Lambda _ _ _ _) = prettyShow l
+debugShow l@(Lambda {})      = prettyShow l
 
 
 
