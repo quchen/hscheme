@@ -87,6 +87,14 @@ testExpressions = do
                         , "(cdr (if (< 1 2) (define x '(1 . 2)) (define x '(2 3))))"
                         , " ; XXX\\n\n (+ (cdr x) ; #This#\\n\n ; #should#\\n\n 3 ;;; #be 5#\\n\n ) ; XXX " -- Comments everywhere
                         , " ( + 1 2 ) " -- Silly spaces
+                        , "((lambda (x) x) 3)" -- Lambda
+                        , "((lambda (x) (+ x 1)) 3)" -- Lambda
+                        , "((lambda (x y) (+ x y)) 1 2)" -- Lambda with multiple args
+                        , "((lambda x x) 3 4 5 6)" -- Vararg lambda
+                        , "((lambda (x y . z) z) 3 4 5 6)" -- Vararg lambda
+                        , "((lambda (x y . z) ((+ x y) z)) 1 2 4 5 6)" -- Vararg lambda. Fails, because evaluates (3 (4 5 6)).
+                        , "(begin '1 '2 '3)" -- Vararg lambda. Fails, because evaluates (3 (4 5 6)).
+                        , "(begin (define (f x y) (+ x y)) (f 3 5))" -- Vararg lambda. Fails, because evaluates (3 (4 5 6)).
                         ]
 
       let maxLength = maximum . map length $ expressions

@@ -1,6 +1,5 @@
 -- | Defines an environment and functions to work with mutable variables.
 module Evaluate.Mutable (
-      EnvR,
       newEnv,
       isSet,
       readVar,
@@ -12,28 +11,23 @@ module Evaluate.Mutable (
 
 import LispLanguage
 import LispError
+import Evaluate.Standard as Standard
 
 import Control.Monad.Error
 import Data.IORef
 import Data.Map
+import Data.Traversable (traverse)
 import Data.Maybe
 import Data.Monoid
 import Prelude hiding (lookup)
 
 
 
--- | Variable database. Variable values are mutable, but variable definitions
---   are not. Use 'EnvR' for that.
-type Env = Map String (IORef LispValue)
 
--- | Pointer to the variable database (R = Reference). Same as 'Env', but in an
---   'EnvR' variables can be created. (Note that there's no Scheme function for
---   deleting variables, although this interface would permit making one.)
-type EnvR = IORef Env
 
--- | New empty environment
+-- | New empty environment. Only the primitive functions are set.
 newEnv :: IO EnvR
-newEnv = newIORef empty
+newEnv = newIORef empty >>= setScopeVars Standard.functions
 
 -- | Checks whether a variable is set in the current environment.
 isSet :: EnvR
@@ -78,20 +72,14 @@ defineVar envR var value = do
       return value
 
 -- | Creates an environment with certain new variables
-setScopeVars :: EnvR -> [(String, LispValue)] -> IO EnvR
-setScopeVars envR newVars = readIORef envR >>= addVars >>= newIORef
+setScopeVars :: Map String LispValue -> EnvR -> IO EnvR
+setScopeVars newVars envR = readIORef envR >>= addVars >>= newIORef
       where
             -- | Adds the new variables provided by the parent scope to the
             --   environment.
             addVars :: Env -> IO Env
             addVars env = do
-                  env' <- fmap fromList $ mapM makeRef newVars
+                  env' <- traverse newIORef newVars
                   return $ env' <> env -- Note that (<>) is left-biased for
                                        -- Data.Map, therefore env' variables
                                        -- are inserted with higher priority.
-
-            -- | Takes (var, value) and packs the value into an IORef, resulting
-            --   in (var, IORef value).
-            makeRef :: (a, b) -> IO (a, IORef b)
-            makeRef (var, value) = do valueR <- newIORef value
-                                      return (var, valueR)

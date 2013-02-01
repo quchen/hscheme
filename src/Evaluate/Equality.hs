@@ -21,3 +21,5 @@ eq args   = throwError $ NumArgs 2 (length args) "eq"
 eqv :: [LispValue] -> ThrowsError LispValue
 eqv [x,y] = eq [x,y]
 eqv args  = throwError $ NumArgs 2 (length args) "eqv"
+
+-- TODO: evaluate equal?

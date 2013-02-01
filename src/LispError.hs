@@ -5,7 +5,7 @@ module LispError (
       , liftThrows
 ) where
 
-import LispLanguage () -- Import only instances
+-- TODO is this necessary? import LispLanguage () -- Import only instances
 import Control.Monad.Error
 import Text.Printf
 import Text.Parsec (ParseError)

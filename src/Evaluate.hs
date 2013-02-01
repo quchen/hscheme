@@ -3,21 +3,17 @@
 module Evaluate (
       evaluate,
       Mutable.newEnv,
-      Mutable.EnvR
 ) where
 
 import LispLanguage
 import LispError
 
-import           Evaluate.Mutable (EnvR)
 import qualified Evaluate.Mutable as Mutable
-import qualified Evaluate.Standard as Standard
 
 import Control.Monad.Error
+import Data.Map (singleton, fromList)
+import Data.Foldable (foldrM)
 
--- ##########################
--- ### TODO: Lambdas. !!! ###
--- ##########################
 
 -- TODO: evaluate equal?
 -- TODO: evaluate cond, case -> http://www.schemers.org/Documents/Standards/R5RS/HTML/r5rs-Z-H-7.html#%_sec_4.2.1
@@ -34,9 +30,10 @@ evaluate e (List (Atom "if"     : xs )) = ifLisp e xs
 evaluate e (List (Atom "set!"   : xs )) = set    e xs
 evaluate e (List (Atom "define" : xs )) = define e xs
 evaluate e (List (Atom "begin"  : xs )) = begin  e xs
-evaluate e (List (Atom "lambda" : xs )) = e `seq` xs `seq` throwError . BadExpr $ "Lambdas are not yet implemented" -- TODO: Change this fact.
-                                          -- ^ Mutes "unused binding" errors.
-evaluate e (List (Atom f        : xs )) = mapM (evaluate e) xs >>= liftThrows . Standard.apply f
+evaluate e (List (Atom "lambda" : xs )) = lambda e xs
+evaluate e (List (f             : xs )) = do evalF <- evaluate e f
+                                             args <- mapM (evaluate e) xs
+                                             apply evalF args
 evaluate _ unknown                      = throwError . BadExpr $ show unknown
 
 
@@ -46,9 +43,14 @@ set    env [Atom var, value] = evaluate env value >>= Mutable.setVar env var
 set    _   [_       , _    ] = throwError $ BadArg "Expected atom"
 set    _   args              = throwError $ NumArgs 2 (length args) "set!"
 
--- | Defines or updates a variable
+-- | Defines or updates a variable. If a list starting with an atom is given,
+--   defines a Lambda.
+--   (define x 2) ==> defines x = 2
+--   (define (f x) (* 2 x)) ==> defines f(x) = 2*x
 define :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
-define env [Atom var, value] = evaluate env value >>= Mutable.defineVar env var
+define envR [Atom var, value] = evaluate envR value >>= Mutable.defineVar envR var
+define envR [List  (Atom f:params)    , body] = lambda envR [List  params    , body] >>= Mutable.defineVar envR f
+define envR [List' (Atom f:params) dot, body] = lambda envR [List' params dot, body] >>= Mutable.defineVar envR f
 define _   [_       , _    ] = throwError $ BadArg "Expected atom"
 define _   args              = throwError $ NumArgs 2 (length args) "define"
 
@@ -68,6 +70,74 @@ quote args   = throwError $ NumArgs 1 (length args) "quote"
 -- | Sequencing. Evaluates the arguments in order, and returns the last result.
 begin :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
 begin _    []     = throwError $ NumArgs 1 0 "begin"
-begin envR (x:xs) = foldM eval2 x xs
-      where eval2 _ = evaluate envR
--- TODO: Error message type for "expected: >= 2 args"
+begin envR (x:xs) = fmap last . mapM (evaluate envR) $ (x:xs)
+-- TODO: Error message type for "expected: >= n args"
+
+-- | Lambda handling
+lambda :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
+-- (lambda (x y) body)
+lambda envR [List params, body] = do
+      paramNames <- mapM (liftThrows . unAtom) params
+      return $ Lambda paramNames Nothing body envR
+-- (lambda (x y . dot) body)
+lambda envR [List' params vararg, body] = do
+      paramNames <- mapM (liftThrows . unAtom) params
+      varargName <- (liftThrows . unAtom) vararg
+      return $ Lambda paramNames (Just varargName) body envR
+-- (lambda x body)
+lambda envR [Atom varargName, body] = do
+      return $ Lambda [] (Just varargName) body envR
+lambda envR lambdaArgs@(_:_) = throwError $ BadArg "Lambdy body must be list"
+
+lambda _ xs = throwError $ NumArgs 2 (length xs) "lambda"
+-- TODO: Error when a variable is used multiple times as Lambda parameter
+
+unAtom :: LispValue -> ThrowsError String
+unAtom (Atom a) = return a
+unAtom _        = throwError $ BadArg "Expected atom"
+
+
+-- | Lambda [String] (Maybe String) [LispValue] EnvR
+
+-- TODO: Error message type for "expected: >= n args"
+
+
+
+
+apply :: LispValue -> [LispValue] -> ThrowsErrorIO LispValue
+apply (PrimitiveF f) args = liftThrows $ f args
+apply (Lambda params vararg body closure) args
+      -- | TODO error handling
+      | otherwise = lambdaEnv >>= evalBody
+
+      where
+
+            -- Environment made out of the closure plus the variables bound by
+            -- the lambda.
+            lambdaEnv :: ThrowsErrorIO EnvR
+            lambdaEnv = do
+                  -- Set the lambda's arguments in the stored environment
+                  (liftIO $ Mutable.setScopeVars (fromList $ zip params args) closure)
+                  >>=
+                  -- Same thing for the vararg
+                  setScopeVararg vararg
+
+            -- If vararg is present, set them in the environment env
+            setScopeVararg args env = maybe
+                  (return env)
+                  (\argName -> liftIO $ Mutable.setScopeVars
+                                              (singleton argName $ List remainingArgs)
+                                              env)
+                  vararg
+
+            -- Evaluates the Lambda's body using a specified environment
+            evalBody :: EnvR -> ThrowsErrorIO LispValue
+            evalBody env = evaluate env body
+
+            -- All the arguments not covered by the parameters
+            remainingArgs = drop (length params) args
+apply x xs = throwError . BadExpr . show . List $ (x:xs)
+-- TODO: ^ gives a bad error message sometimes. For example, in
+--       ((lambda (x) (x)) 3)
+--       the 3 is inserted first, and then (3) triggers the above error.
+--       This behavior isn't wrong, but the error message could be better.
