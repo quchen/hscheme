@@ -52,12 +52,12 @@ instance Show LispValue where
 
 -- | Prettyprints Lisp code for production
 prettyShow :: LispValue -> String
-prettyShow (Atom s)    = s
-prettyShow (Bool b)    = if b then "#t" else "#f"
-prettyShow (Number i)  = show i
-prettyShow (String s)  = printf "\"%s\"" s
-prettyShow (List [Atom "quote", x]) = '\'' : show x
-prettyShow (List l)    = printf "(%s)" $ spacedShow prettyShow l
+prettyShow (Atom    s) = s
+prettyShow (Bool    b) = if b then "#t" else "#f"
+prettyShow (Number  i) = show i
+prettyShow (String  s) = printf "\"%s\"" s
+prettyShow (List [Atom "quote", x]) = '\'' : prettyShow x
+prettyShow (List    l) = printf "(%s)" $ spacedShow prettyShow l
 prettyShow (List' l d) = printf "(%s)" $
                          spacedShow prettyShow l ++ " . "++ prettyShow d
 prettyShow (PrimitiveF _) = "<primitive>"

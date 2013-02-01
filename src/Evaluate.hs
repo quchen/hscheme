@@ -75,8 +75,8 @@ quote args   = throwError $ NumArgs EQ 1 (length args) "quote"
 -- | Sequencing. Evaluates the arguments in order, and returns the last result.
 begin :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
 begin _    []     = throwError $ NumArgs GT 0 0 "begin"
-begin envR [x]    = evaluate envR x
-begin envR (x:xs) = evaluate envR x >> begin envR xs
+begin envR (x:xs) = evaluate envR x >>= if null xs then return
+                                                   else const (begin envR xs)
 
 -- | Lambda handling
 lambda :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
