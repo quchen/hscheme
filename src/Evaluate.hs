@@ -70,7 +70,8 @@ quote args   = throwError $ NumArgs 1 (length args) "quote"
 -- | Sequencing. Evaluates the arguments in order, and returns the last result.
 begin :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
 begin _    []     = throwError $ NumArgs 1 0 "begin"
-begin envR (x:xs) = fmap last . mapM (evaluate envR) $ (x:xs)
+begin envR [x]    = evaluate envR x
+begin envR (x:xs) = evaluate envR x >> begin envR xs
 -- TODO: Error message type for "expected: >= n args"
 
 -- | Lambda handling

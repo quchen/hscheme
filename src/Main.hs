@@ -95,6 +95,7 @@ testExpressions = do
                         , "((lambda (x y . z) ((+ x y) z)) 1 2 4 5 6)" -- Vararg lambda. Fails, because evaluates (3 (4 5 6)).
                         , "(begin '1 '2 '3)" -- Vararg lambda. Fails, because evaluates (3 (4 5 6)).
                         , "(begin (define (f x y) (+ x y)) (f 3 5))" -- Vararg lambda. Fails, because evaluates (3 (4 5 6)).
+                        , "(begin (define x 0) (define (f y) (set! x (+ x x y))) (f 1) (f 10) x)" -- Vararg lambda. Fails, because evaluates (3 (4 5 6)).
                         ]
 
       let maxLength = maximum . map length $ expressions
