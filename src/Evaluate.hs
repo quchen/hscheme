@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 -- | Evaluates a Lisp tree. This module contains the actual 'evaluate' function,
 --   and the primitive expressions of chapter 4 of the R5RS report.
 module Evaluate (
@@ -117,8 +119,7 @@ unAtom _        = throwError $ BadArg "Expected atom"
 letLisp :: EnvR -> [LispValue] -> Bool -> ThrowsErrorIO LispValue
 letLisp envR [List bindings, body] errorOnDuplicate = do
       let -- Converts Lisp's (x val) to Haskell's (x, val)
-          toTuple (List [Atom var, value]) = do value' <- evaluate envR value
-                                                return (var, value')
+          toTuple (List [Atom var, value]) = fmap (var,) $ evaluate envR value
           toTuple (List (Atom var : xs  )) = throwError $ NumArgs EQ 1 (length xs) ("let/" ++ var)
           toTuple (List (_notAtom : _   )) = throwError $ BadArg "Expected atom"
           toTuple _                        = throwError $ BadArg "Expected list of let bindings"
@@ -189,7 +190,7 @@ apply x xs = throwError . BadExpr . show . List $ (x:xs)
 
 -- | Conditional.
 cond :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
-cond envR (List [] :_) = throwError $ BadArg "Expected predicate"
+cond _    (List [] :_) = throwError $ BadArg "Expected predicate"
 cond envR (List [p] : rest) = do pEval <- evaluate envR p
                                  if isTrue pEval then return p
                                                  else cond envR rest
@@ -198,11 +199,14 @@ cond envR (List [p, Atom "=>", expr] : rest) = do
       if isTrue pEval then do exprEval <- evaluate envR expr
                               apply exprEval [pEval]
                       else cond envR rest
-cond envR (List (p : Atom "=>" : expr : xs) : rest) =
+cond _ (List (_ : Atom "=>" : _ : xs) : _) =
       throwError $ NumArgs EQ 1 (length xs) "=> X"
 cond envR (List (p:exprs):rest) = do
       pEval <- case p of Atom "else" -> return $ Bool True
                          _otherwise  -> evaluate envR p
       if isTrue pEval then begin envR exprs
                       else cond envR rest
-cond envR [] = throwError $ BadArg "Unsatisfied cond"
+cond _ (_:_) = throwError $ BadArg "Expecting list as cond arguments"
+cond _ _     = throwError $ BadArg "Unsatisfied cond"
+
+-- TODO: case

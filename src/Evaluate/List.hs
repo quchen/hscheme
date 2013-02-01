@@ -2,7 +2,8 @@
 module Evaluate.List (
       car,
       cdr,
-      cons
+      cons,
+      lispNull
 ) where
 
 import LispLanguage
@@ -35,3 +36,8 @@ cons [x, List xs     ] = return $ List (x:xs)
 cons [x, List' xs dot] = return $ List' (x:xs) dot
 cons [x, y           ] = return $ List' [x] y
 cons args              = throwError $ NumArgs EQ 2 (length args) "cons"
+
+lispNull :: [LispValue] -> ThrowsError LispValue
+lispNull [List []] = return $ Bool True
+lispNull [_]       = return $ Bool False
+lispNull args      = throwError $ NumArgs EQ 1 (length args) "null?"

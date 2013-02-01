@@ -55,9 +55,10 @@ functions = fromList . map (second PrimitiveF) $ [
       , ( "string>=?", strBoolBinOp (>=) )
 
         -- List functions
-      , ( "cons", List.cons )
-      , (  "car", List.car  )
-      , (  "cdr", List.cdr  )
+      , (  "cons", List.cons     )
+      , (   "car", List.car      )
+      , (   "cdr", List.cdr      )
+      , ( "null?", List.lispNull )
       ]
 
 -- | Applies numerical binary operators.
