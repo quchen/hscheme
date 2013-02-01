@@ -54,8 +54,10 @@ define _   args              = throwError $ NumArgs 2 (length args) "define"
 
 -- | If statement. Only evaluates the branch it needs to.
 ifLisp :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
-ifLisp envR [ Bool False, _     , ifFalse ] = evaluate envR ifFalse
-ifLisp envR [ _         , ifTrue, _       ] = evaluate envR ifTrue
+ifLisp envR [ p, trueBranch, falseBranch ] = do
+      p' <- evaluate envR p
+      evaluate envR $ case p' of Bool False -> falseBranch
+                                 _else      -> trueBranch
 ifLisp _ args = throwError $ NumArgs 3 (length args) "if"
 
 -- | Quoted statement are returned unevaluated to the parse tree.
