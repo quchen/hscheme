@@ -12,7 +12,7 @@ import qualified Evaluate.Mutable as Mutable
 
 import Control.Monad.Error
 import Data.Map (singleton, fromList)
-import Data.Foldable (foldrM)
+import Data.List
 
 
 -- TODO: evaluate equal?
@@ -25,12 +25,13 @@ evaluate _ x@(Bool _)                   = return x
 evaluate _ x@(Number _)                 = return x
 evaluate _ x@(String _)                 = return x
 evaluate e (Atom x)                     = Mutable.readVar e x
-evaluate _ (List (Atom "quote"  : xs )) = quote xs
-evaluate e (List (Atom "if"     : xs )) = ifLisp e xs
-evaluate e (List (Atom "set!"   : xs )) = set    e xs
-evaluate e (List (Atom "define" : xs )) = define e xs
-evaluate e (List (Atom "begin"  : xs )) = begin  e xs
-evaluate e (List (Atom "lambda" : xs )) = lambda e xs
+evaluate _ (List (Atom "quote"  : xs )) = quote     xs
+evaluate e (List (Atom "if"     : xs )) = ifLisp  e xs
+evaluate e (List (Atom "set!"   : xs )) = set     e xs
+evaluate e (List (Atom "define" : xs )) = define  e xs
+evaluate e (List (Atom "begin"  : xs )) = begin   e xs
+evaluate e (List (Atom "lambda" : xs )) = lambda  e xs
+evaluate e (List (Atom "let"    : xs )) = letLisp e xs
 evaluate e (List (f             : xs )) = do evalF <- evaluate e f
                                              args <- mapM (evaluate e) xs
                                              apply evalF args
@@ -97,10 +98,21 @@ unAtom :: LispValue -> ThrowsError String
 unAtom (Atom a) = return a
 unAtom _        = throwError $ BadArg "Expected atom"
 
-
--- | Lambda [String] (Maybe String) [LispValue] EnvR
-
 -- TODO: Error message type for "expected: >= n args"
+
+letLisp :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
+letLisp envR [List bindings, body] = do
+      let -- Converts Lisp's (x val) to Haskell's (x, val)
+          toTuple (List [Atom var, value]) = do value' <- evaluate envR value
+                                                return (var, value')
+          toTuple (List (Atom var : xs  )) = throwError $ NumArgs 1 (length xs) ("let/" ++ var)
+          toTuple (List (     var : xs  )) = throwError $ BadArg "Expected atom"
+          toTuple _                        = throwError $ BadArg "Expected list of let bindings"
+      bindingTuples <- mapM toTuple bindings
+      when (maximum (map length . group . sort . map fst $ bindingTuples) > 1) $
+            throwError $ BadArg "Every variable can occur at most once in a let binding"
+      closure <- liftIO $ Mutable.setScopeVars (fromList bindingTuples) envR
+      evaluate closure body
 
 
 
