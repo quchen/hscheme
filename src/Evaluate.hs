@@ -65,21 +65,9 @@ quote args   = throwError $ NumArgs 1 (length args) "quote"
 -- | Sequencing. Evaluates the arguments in order, and returns the last result.
 begin :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
 begin _    []     = throwError $ NumArgs 1 0 "begin"
-begin envR (x:xs) = foldrM eval2 x xs
-      where eval2 expr acc = evaluate envR expr
+begin envR (x:xs) = fmap last . mapM (evaluate envR) $ (x:xs)
 -- TODO: Error message type for "expected: >= n args"
 
-      -- fmap last . mapM (evaluate envR) $ (x:xs)
--- -- foldM is like foldl, but the accumulator is monadic.
--- foldM :: Monad m => (a -> b -> m a) -> a -> [b] -> m a
--- foldM f x1 [x2, x3, ..., xm] = do
---       a1 <- eval x1 x2
---       a2 <- eval
--- foldM f a1 [x1, x2, ..., xm] = do
---       a2 <- f a1 x1
---       a3 <- f a2 x2
---       ...
---       f am xm
 
 lambda :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
 -- (lambda (x y) body)
