@@ -31,7 +31,8 @@ evaluate e (List (Atom "set!"   : xs )) = set     e xs
 evaluate e (List (Atom "define" : xs )) = define  e xs
 evaluate e (List (Atom "begin"  : xs )) = begin   e xs
 evaluate e (List (Atom "lambda" : xs )) = lambda  e xs
-evaluate e (List (Atom "let"    : xs )) = letLisp e xs
+evaluate e (List (Atom "let"    : xs )) = letLisp e xs True
+evaluate e (List (Atom "let*"   : xs )) = letLisp e xs False
 evaluate e (List (f             : xs )) = do evalF <- evaluate e f
                                              args <- mapM (evaluate e) xs
                                              apply evalF args
@@ -100,8 +101,10 @@ unAtom _        = throwError $ BadArg "Expected atom"
 
 -- TODO: Error message type for "expected: >= n args"
 
-letLisp :: EnvR -> [LispValue] -> ThrowsErrorIO LispValue
-letLisp envR [List bindings, body] = do
+-- | Let binding. Depending on the boolean argument, duplicate bindings produce
+--   an error (let) or not (let*).
+letLisp :: EnvR -> [LispValue] -> Bool -> ThrowsErrorIO LispValue
+letLisp envR [List bindings, body] errorOnDuplicate = do
       let -- Converts Lisp's (x val) to Haskell's (x, val)
           toTuple (List [Atom var, value]) = do value' <- evaluate envR value
                                                 return (var, value')
@@ -109,7 +112,8 @@ letLisp envR [List bindings, body] = do
           toTuple (List (     var : xs  )) = throwError $ BadArg "Expected atom"
           toTuple _                        = throwError $ BadArg "Expected list of let bindings"
       bindingTuples <- mapM toTuple bindings
-      when (maximum (map length . group . sort . map fst $ bindingTuples) > 1) $
+      let maxCount = maximum (map length . group . sort . map fst $ bindingTuples)
+      when (errorOnDuplicate && maxCount > 1) $
             throwError $ BadArg "Every variable can occur at most once in a let binding"
       closure <- liftIO $ Mutable.setScopeVars (fromList bindingTuples) envR
       evaluate closure body
