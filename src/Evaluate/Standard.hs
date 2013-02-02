@@ -44,8 +44,8 @@ functions = fromList . map (second PrimitiveF) $ [
       , ( "||", boolBoolBinOp (||) )
 
          -- General boolean operators
-      , (  "eq?", Equality.eq  )
-      , ( "eqv?", Equality.eqv )
+      , (  "eq?", Equality.eqQ  )
+      , ( "eqv?", Equality.eqvQ )
 
         -- String boolean operators
       , (  "string=?", strBoolBinOp (==) )
@@ -55,10 +55,16 @@ functions = fromList . map (second PrimitiveF) $ [
       , ( "string>=?", strBoolBinOp (>=) )
 
         -- List functions
-      , (  "cons", List.cons     )
-      , (   "car", List.car      )
-      , (   "cdr", List.cdr      )
-      , ( "null?", List.lispNull )
+      , (      "cons", List.cons        )
+      , (       "car", List.car         )
+      , (       "cdr", List.cdr         )
+      , (     "null?", List.nullQ       )
+      , (     "pair?", List.pairQ       )
+      , ( "list-tail", List.pairQ       )
+      , (      "list", List.list        )
+      , (   "reverse", List.lispReverse )
+      , ( "list-tail", List.listTail    )
+
       ]
 
 -- | Applies numerical binary operators.

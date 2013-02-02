@@ -114,9 +114,12 @@ expressionP = between ignoreP ignoreP $
               <|> quotedP
 
 
+-- | Parses a whole Lisp expression
 lispP :: Parser LispValue
 lispP = ignoreP *> expressionP <* ignoreP <* eof
 
+-- | Takes Lisp code as a String, and returns the parse tree.
+--   This is the API function of this module.
 parseLisp :: String -> Either LispError LispValue
 parseLisp = toLispError . parse lispP "Lisp code parser"
       where -- Convert Parsec error to Lisp error

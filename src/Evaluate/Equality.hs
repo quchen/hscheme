@@ -2,8 +2,8 @@
 --   (More specific functions, such as 'string=?', are in the respective
 --   modules)
 module Evaluate.Equality (
-      eq,
-      eqv
+      eqQ,
+      eqvQ
 ) where
 
 import LispLanguage
@@ -12,14 +12,14 @@ import LispError
 import Control.Monad.Error
 
 -- | Equality check
-eq :: [LispValue] -> ThrowsError LispValue
-eq [x, y] = return . Bool $ x == y
-eq args   = throwError $ NumArgs EQ 2 (length args) "eq"
+eqQ :: [LispValue] -> ThrowsError LispValue
+eqQ [x, y] = return . Bool $ x == y
+eqQ args   = throwError $ NumArgs EQ 2 (length args) "eq"
 
 -- | Equality check again. Identical to 'eq'.
 -- TODO: Implement some differences? Behavior is correct but redundant right now
-eqv :: [LispValue] -> ThrowsError LispValue
-eqv [x,y] = eq [x,y]
-eqv args  = throwError $ NumArgs EQ 2 (length args) "eqv"
+eqvQ :: [LispValue] -> ThrowsError LispValue
+eqvQ [x,y] = eqQ [x,y]
+eqvQ args  = throwError $ NumArgs EQ 2 (length args) "eqv"
 
 -- TODO: evaluate equal?
